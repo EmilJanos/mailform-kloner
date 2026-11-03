@@ -62,7 +62,7 @@ else {
       : clean(s.html)
   ));
 
-  zone.querySelectorAll('[data-mf-form]').forEach(slot=>{slot.innerHTML='<form class="form contactform__form"><fieldset><legend></legend><label>Din email<input type="email" required></label><label>Besked<textarea required></textarea></label><button type="submit">Send</button></fieldset></form>';});
+  zone.querySelectorAll('[data-mf-form]').forEach(slot=>{slot.innerHTML='<form class="form contactform__form"><fieldset><legend></legend><label>Din email<input type="email" required></label><label>Telefonnummer (valgfrit)<input type="tel" autocomplete="tel" inputmode="tel" maxlength="30"></label><label>Besked<textarea required></textarea></label><button type="submit">Send</button></fieldset></form>';});
   // Keep the original form markup and connect it to our own endpoint.
   zone.querySelectorAll('form').forEach(form => {
     const legend=form.querySelector('legend'); if(legend) legend.textContent=page.legend;
@@ -73,7 +73,7 @@ else {
       const button=form.querySelector('[type=submit]');if(button)button.disabled=true;
       status.textContent='Sender…';
       try{
-        const {data,error}=await db.functions.invoke('send-form',{body:{slug:page.slug,email:form.querySelector('input[type=email]')?.value,message:form.querySelector('textarea')?.value,website:trap.value}});
+        const {data,error}=await db.functions.invoke('send-form',{body:{slug:page.slug,email:form.querySelector('input[type=email]')?.value,phone:form.querySelector('input[type=tel]')?.value||'',message:form.querySelector('textarea')?.value,website:trap.value}});
         if(error||!data?.ok)throw Error('send');
         status.textContent=data.mailed===true?'Tak! Din besked er sendt.':'Tak! Din besked er gemt. Mailafsendelse er ikke bekræftet.';form.reset();
       }catch{status.textContent='Beskeden kunne ikke gemmes. Tjek mailadressen og prøv igen.';}

@@ -13,23 +13,25 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
   if (req.method !== "POST") return json({ error: "method" }, 405);
 
-  let body: { slug?: string; email?: string; message?: string; website?: string };
+  let body: { slug?: string; email?: string; phone?: string; message?: string; website?: string };
   try { body = await req.json(); } catch { return json({ error: "bad json" }, 400); }
   if (!body || typeof body !== "object" || Array.isArray(body)) return json({ error: "bad json" }, 400);
   if (body.website) return json({ ok: true }); // honeypot mod spam
 
   const slug = String(body.slug ?? "");
   const email = String(body.email ?? "").trim();
+  const phone = String(body.phone ?? "").trim();
   const message = String(body.message ?? "").trim();
   if (!/^[a-z0-9][a-z0-9-]{1,40}$/.test(slug)) return json({ error: "slug" }, 400);
   if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email) || email.length > 200) return json({ error: "email" }, 400);
+  if (phone && !/^[0-9+()\-\s.]{3,30}$/.test(phone)) return json({ error: "phone" }, 400);
   if (message.length < 1 || message.length > 5000) return json({ error: "message" }, 400);
 
   const db = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
   const { data: page } = await db.from("pages").select("id,title,published").eq("slug", slug).maybeSingle();
   if (!page || !page.published) return json({ error: "ukendt side" }, 404);
 
-  const { error: saveError } = await db.from("submissions").insert({ page_id: page.id, email, message });
+  const { error: saveError } = await db.from("submissions").insert({ page_id: page.id, email, message: phone ? `${message}\n\nTelefon: ${phone}` : message });
   if (saveError) return json({ error: "Kunne ikke gemme beskeden" }, 500);
 
   const { data: st } = await db.from("page_settings").select("form_to_email").eq("page_id", page.id).maybeSingle();
@@ -44,7 +46,7 @@ Deno.serve(async (req) => {
         to: st.form_to_email,
         reply_to: email,
         subject: `Ny besked fra ${page.title || slug}`,
-        text: `Fra: ${email}\n\n${message}`,
+        text: `Fra: ${email}${phone ? `\nTelefon: ${phone}` : ""}\n\n${message}`,
       }),
     });
     if (!r.ok) {
