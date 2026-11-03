@@ -40,9 +40,15 @@ async function start() {
 
 function loginView() {
   app.innerHTML = `<h1>Log ind</h1><div class="card">
-    <label>Din e-mail (du får et link, ingen adgangskode)</label>
+    <label>Din e-mail</label>
     <input id="em" type="email" autocomplete="email">
-    <p><button id="go">Send link</button></p><p id="msg" class="mut"></p></div>`;
+    <label>Adgangskode (hvis du har en)</label>
+    <input id="pw" type="password" autocomplete="current-password">
+    <p class="row"><button id="gopw">Log ind</button><button class="sec" id="go">Send link i stedet</button></p><p id="msg" class="mut"></p></div>`;
+  document.getElementById("gopw").onclick = async () => {
+    const { error } = await db.auth.signInWithPassword({ email: document.getElementById("em").value, password: document.getElementById("pw").value });
+    if (error) msg("Fejl: " + error.message, "err"); else start();
+  };
   document.getElementById("go").onclick = async () => {
     const { error } = await db.auth.signInWithOtp({ email: document.getElementById("em").value,
       options: { emailRedirectTo: location.href.split("#")[0] } });
