@@ -7,5 +7,5 @@ window.DOMPurify.addHook('afterSanitizeAttributes', node => {
   if(node.tagName==='FORM'){node.removeAttribute('action');node.removeAttribute('target');}
 });
 export const clean = (html) =>
-  DOMPurify.sanitize(html, { ADD_ATTR: ["target"], ADD_TAGS: ["iframe"], FORBID_TAGS: ["style", "script"] });
+  DOMPurify.sanitize(html, { ADD_ATTR: ["target", "allowfullscreen", "allow", "controls", "playsinline", "preload"], ADD_TAGS: ["iframe"], FORBID_TAGS: ["style", "script"] });
 export const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));

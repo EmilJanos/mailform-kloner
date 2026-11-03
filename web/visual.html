@@ -45,6 +45,19 @@
 /* Galleriet vises som almindelige billeder mens man redigerer */
 .mf-edit .gallery__image { display: block; width: 100%; height: 100%; object-fit: cover; }
 .mf-add { display: flex; justify-content: center; padding: 10px 0 40px; }
+/* Kolonner: sektioner der står side om side. Stables på smalle skærme. */
+.mf-row { display: flex; gap: 3%; align-items: flex-start; margin-bottom: 8px; }
+.mf-row > .mf-sec { flex: 1 1 0; min-width: 0; }
+@media (max-width: 660px) { .mf-row { flex-direction: column; } .mf-row > .mf-sec { width: 100%; } }
+.mf-bar { flex-wrap: wrap; justify-content: flex-end; max-width: 100%; }
+.mf-bar .mf-drag { cursor: grab; touch-action: none; }
+.mf-bar .mf-w { display: none; }
+.mf-row > .mf-sec > .mf-bar .mf-w { display: inline-flex; }
+.mf-sec.mf-dragging { opacity: 0.35; }
+body.mf-is-dragging, body.mf-is-dragging * { cursor: grabbing !important; user-select: none !important; }
+.mf-ind { position: fixed; z-index: 2000; background: #8d9bff; border-radius: 3px; pointer-events: none; display: none; box-shadow: 0 0 0 2px rgba(141,155,255,0.3); }
+.mf-ind.bad { background: #ff7b7b; }
+.mf-ghost { position: fixed; z-index: 2001; pointer-events: none; display: none; background: #15161c; color: #eceef6; border: 1px solid #8d9bff; border-radius: 6px; padding: 4px 10px; font: 13px/1.4 system-ui, sans-serif; white-space: nowrap; }
 </style>
 </head>
 <body class="no-touch mf-edit">
@@ -68,7 +81,12 @@
   <span class="mf-sep"></span>
   <button id="mf-link" title="Lav markeret tekst til et link">🔗 Link</button>
   <button data-cmd="unlink" title="Fjern link">Fjern link</button>
-  <button id="mf-img" title="Indsæt billede fra en adresse">🖼 Billede</button>
+  <button id="mf-upload" title="Upload et billede fra computer eller telefon">🖼 Upload billede</button>
+  <button id="mf-img" title="Indsæt billede fra en adresse">Billede fra link</button>
+  <input type="file" id="mf-file" accept="image/jpeg,image/png,image/webp,image/gif" hidden>
+  <button id="mf-vupload" title="Upload en video fra computer eller telefon (højst 50 MB)">🎬 Upload video</button>
+  <button id="mf-vlink" title="Indsæt YouTube-video eller videoadresse">Video fra link</button>
+  <input type="file" id="mf-vfile" accept="video/mp4,video/webm,video/quicktime" hidden>
   <span class="mf-sep"></span>
   <button data-cmd="undo" title="Fortryd (Ctrl+Z)">↶</button>
   <button data-cmd="redo" title="Gentag (Ctrl+Y)">↷</button>
@@ -112,6 +130,8 @@ const LOCKS = [
   ["form", "Formular – virker på den rigtige side"],
   [".gallery", "Galleri – rettes i HTML-visning"],
   ["iframe", null],
+  ["video", null],
+  [".mf-video", null],
 ];
 function lock(root) {
   for (const [sel, label] of LOCKS) {
@@ -132,15 +152,20 @@ function unlock(root) {
   });
 }
 
+const originals = new Map(); // bevarer felter vi ikke selv kender, når vi gemmer
 function sectionEl(s) {
   const wrap = document.createElement("div");
   wrap.className = "mf-sec";
   wrap.dataset.kind = s.kind;
   wrap.dataset.id = s.id;
+  if (s.w) wrap.dataset.w = String(s.w);
+  originals.set(s.id, s);
   wrap.innerHTML = `<div class="mf-ui mf-bar" contenteditable="false">
+      <button data-act="drag" class="mf-drag" title="Træk for at flytte – slip til venstre/højre for kolonner">⠿ Træk</button>
       <button data-act="up" title="Flyt op">↑</button>
       <button data-act="down" title="Flyt ned">↓</button>
       <button data-act="add" title="Ny tekstblok under denne">+ Tekst</button>
+      <button data-act="w" class="mf-w" title="Skift bredde på kolonnen">Bredde</button>
       <button data-act="del" class="mf-danger" title="Slet sektionen">Slet</button>
     </div>`;
   const body = document.createElement("div");
@@ -161,13 +186,58 @@ function newTextSection() {
   });
 }
 
-function collect() {
-  return [...zone.querySelectorAll(":scope > .mf-sec")].map((w) => {
-    const copy = w.querySelector(".mf-body").cloneNode(true);
-    unlock(copy);
-    return { id: w.dataset.id, kind: w.dataset.kind, html: clean(copy.innerHTML).trim() };
-  });
+function secData(w, row) {
+  const copy = w.querySelector(".mf-body").cloneNode(true);
+  unlock(copy);
+  const out = { ...(originals.get(w.dataset.id) || {}), id: w.dataset.id, kind: w.dataset.kind, html: clean(copy.innerHTML).trim() };
+  delete out.row; delete out.w;
+  if (row) { out.row = row; const wt = +w.dataset.w || 1; if (wt !== 1) out.w = wt; }
+  return out;
 }
+function collect() {
+  normalize();
+  const out = [];
+  for (const el of zone.children) {
+    if (el.classList.contains("mf-sec")) out.push(secData(el, null));
+    else if (el.classList.contains("mf-row")) for (const c of el.querySelectorAll(":scope > .mf-sec")) out.push(secData(c, el.dataset.row));
+  }
+  return out;
+}
+
+// --- Layout: rækker med 2–3 kolonner ---
+const MAX_COLS = 3;
+const newRowId = () => "r" + Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
+function applyWidth(sec) {
+  const inRow = sec.parentElement && sec.parentElement.classList.contains("mf-row");
+  sec.style.flexGrow = inRow ? String(+sec.dataset.w || 1) : "";
+  if (!inRow) delete sec.dataset.w;
+}
+function makeRow(id) { const r = document.createElement("div"); r.className = "mf-row"; r.dataset.row = id || newRowId(); return r; }
+function buildZone(sections) {
+  const els = [];
+  for (let i = 0; i < sections.length; ) {
+    const r = sections[i].row;
+    let j = i + 1;
+    if (r) while (j < sections.length && sections[j].row === r && j - i < MAX_COLS) j++;
+    if (r && j - i >= 2) {
+      const row = makeRow(r);
+      for (let k = i; k < j; k++) row.append(sectionEl(sections[k]));
+      els.push(row);
+    } else els.push(sectionEl({ ...sections[i], w: undefined }));
+    i = j;
+  }
+  zone.replaceChildren(...els);
+  zone.querySelectorAll(".mf-sec").forEach(applyWidth);
+}
+function normalize() {
+  zone.querySelectorAll(":scope > .mf-row").forEach((row) => {
+    const kids = row.querySelectorAll(":scope > .mf-sec");
+    if (kids.length === 0) row.remove();
+    else if (kids.length === 1) row.replaceWith(kids[0]);
+  });
+  zone.querySelectorAll(".mf-sec").forEach(applyWidth);
+}
+const blockOf = (sec) => (sec.parentElement.classList.contains("mf-row") ? sec.parentElement : sec);
 
 async function save() {
   if (!page || saving) return;
@@ -206,7 +276,7 @@ else {
     document.getElementById("mf-title").value = page.title || "";
     document.getElementById("mf-legend").value = page.legend || "";
     document.getElementById("mf-pub").checked = !!page.published;
-    zone.replaceChildren(...page.sections.map(sectionEl));
+    buildZone(page.sections);
     zone.querySelectorAll("legend").forEach((l) => (l.textContent = page.legend));
     canEdit = page.owner_id === session.user.id;
     if (!canEdit) {
@@ -260,7 +330,127 @@ document.getElementById("mf-img").onclick = () => {
   exec("insertImage", url.trim());
 };
 
-document.getElementById("mf-meta-toggle").onclick = () => document.getElementById("mf-meta").classList.toggle("open");
+// --- Billedupload (Supabase Storage, mappe pr. bruger) ---
+const IMG_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
+const MAX_SIDE = 1600;
+async function shrink(file) {
+  // GIF bevares (animation); store billeder skaleres ned og gemmes som WebP/JPEG.
+  if (file.type === "image/gif") return { blob: file, type: file.type, ext: "gif" };
+  let bmp;
+  try { bmp = await createImageBitmap(file); } catch { return { blob: file, type: file.type, ext: file.type.split("/")[1] }; }
+  const scale = Math.min(1, MAX_SIDE / Math.max(bmp.width, bmp.height));
+  if (scale === 1 && file.size < 1.5e6) return { blob: file, type: file.type, ext: file.type.split("/")[1].replace("jpeg", "jpg") };
+  const c = document.createElement("canvas");
+  c.width = Math.round(bmp.width * scale); c.height = Math.round(bmp.height * scale);
+  c.getContext("2d").drawImage(bmp, 0, 0, c.width, c.height);
+  const keepAlpha = file.type === "image/png" || file.type === "image/webp";
+  for (const [type, ext] of [["image/webp", "webp"], [keepAlpha ? "image/png" : "image/jpeg", keepAlpha ? "png" : "jpg"]]) {
+    const blob = await new Promise((r) => c.toBlob(r, type, 0.85));
+    if (blob && blob.type === type) return { blob, type, ext };
+  }
+  return { blob: file, type: file.type, ext: file.type.split("/")[1] };
+}
+async function uploadImage(file, range) {
+  if (!canEdit) return say("Du ejer ikke siden", "err");
+  if (!IMG_TYPES.includes(file.type)) return say("Kun JPG, PNG, WebP eller GIF", "err");
+  if (file.size > 20e6) return say("Billedet er for stort (over 20 MB)", "err");
+  say("Uploader billede…");
+  try {
+    const { blob, type, ext } = await shrink(file);
+    if (blob.size > 5242880) return say("Billedet er stadig over 5 MB efter komprimering", "err");
+    const path = `${currentUserId}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+    const { error } = await db.storage.from("images").upload(path, blob, { contentType: type, cacheControl: "31536000", upsert: false });
+    if (error) return say("Upload fejlede: " + error.message, "err");
+    const url = db.storage.from("images").getPublicUrl(path).data.publicUrl;
+    if (range) savedRange = range;
+    exec("insertImage", url);
+    const alt = file.name.replace(/\.[^.]+$/, "").replace(/[-_]+/g, " ").slice(0, 80);
+    zone.querySelectorAll(`img[src="${CSS.escape(url)}"]`).forEach((im) => im.setAttribute("alt", alt));
+    say("Billede indsat – husk at gemme");
+  } catch (err) { say("Upload fejlede. Prøv igen.", "err"); }
+}
+const fileInput = document.getElementById("mf-file");
+document.getElementById("mf-upload").onclick = () => {
+  if (!savedRange) return say("Klik først der, hvor billedet skal stå", "err");
+  fileInput.click();
+};
+fileInput.onchange = () => {
+  const f = fileInput.files[0];
+  fileInput.value = "";
+  if (f) uploadImage(f, savedRange && savedRange.cloneRange());
+};
+zone.addEventListener("dragover", (e) => { if ([...e.dataTransfer.items].some((i) => i.kind === "file")) e.preventDefault(); });
+zone.addEventListener("drop", (e) => {
+  const f = [...e.dataTransfer.files].find((x) => IMG_TYPES.includes(x.type) || VID_TYPES.includes(x.type));
+  if (!f || !e.target.closest(".mf-body")) return;
+  e.preventDefault();
+  const r = document.caretRangeFromPoint ? document.caretRangeFromPoint(e.clientX, e.clientY) : null;
+  (IMG_TYPES.includes(f.type) ? uploadImage : uploadVideo)(f, r || savedRange);
+});
+
+// --- Video: upload eller link ---
+const VID_TYPES = ["video/mp4", "video/webm", "video/quicktime"];
+const VID_MAX = 52428800; // 50 MB (grænsen på Supabase gratis-plan)
+const escAttr = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+function insertBlock(html, range) {
+  if (range) savedRange = range;
+  exec("insertHTML", html + "<div><br></div>");
+  zone.querySelectorAll(".mf-body").forEach(lock);
+}
+const videoTag = (src) =>
+  `<div class="mf-video" style="max-width:800px;margin:10px auto;"><video src="${escAttr(src)}" controls playsinline preload="metadata" style="width:100%;height:auto;display:block;"></video></div>`;
+function youtubeId(u) {
+  try {
+    const url = new URL(u);
+    const h = url.hostname.replace(/^www\.|^m\./, "");
+    if (h === "youtu.be") return url.pathname.slice(1);
+    if (h === "youtube.com" || h === "youtube-nocookie.com") {
+      if (url.searchParams.get("v")) return url.searchParams.get("v");
+      const m = url.pathname.match(/^\/(embed|shorts|live)\/([^/?#]+)/);
+      if (m) return m[2];
+    }
+  } catch {}
+  return null;
+}
+async function uploadVideo(file, range) {
+  if (!canEdit) return say("Du ejer ikke siden", "err");
+  if (!VID_TYPES.includes(file.type)) return say("Kun MP4, WebM eller MOV", "err");
+  if (file.size > VID_MAX) return say(`Videoen fylder ${(file.size / 1e6).toFixed(0)} MB – højst 50 MB. Læg den på YouTube og brug "Video fra link".`, "err");
+  say(`Uploader video (${(file.size / 1e6).toFixed(1)} MB)… lad siden være åben`);
+  const ext = { "video/mp4": "mp4", "video/webm": "webm", "video/quicktime": "mov" }[file.type];
+  const path = `${currentUserId}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+  try {
+    const { error } = await db.storage.from("videos").upload(path, file, { contentType: file.type, cacheControl: "31536000", upsert: false });
+    if (error) return say("Upload fejlede: " + error.message, "err");
+    insertBlock(videoTag(db.storage.from("videos").getPublicUrl(path).data.publicUrl), range);
+    say("Video indsat – husk at gemme");
+  } catch { say("Upload fejlede. Prøv igen.", "err"); }
+}
+const vfile = document.getElementById("mf-vfile");
+document.getElementById("mf-vupload").onclick = () => {
+  if (!savedRange) return say("Klik først der, hvor videoen skal stå", "err");
+  vfile.click();
+};
+vfile.onchange = () => {
+  const f = vfile.files[0];
+  vfile.value = "";
+  if (f) uploadVideo(f, savedRange && savedRange.cloneRange());
+};
+document.getElementById("mf-vlink").onclick = () => {
+  if (!savedRange) return say("Klik først der, hvor videoen skal stå", "err");
+  const keep = savedRange.cloneRange();
+  const u = (prompt("Indsæt YouTube-link eller adresse på en videofil (.mp4/.webm)", "https://") || "").trim();
+  if (!/^https:\/\//i.test(u)) return;
+  const id = youtubeId(u);
+  if (id && /^[\w-]{6,20}$/.test(id)) {
+    insertBlock(`<div class="mf-video" style="max-width:800px;margin:10px auto;"><div style="position:relative;padding-bottom:56.25%;height:0;overflow:hidden;"><iframe src="https://www.youtube-nocookie.com/embed/${id}" title="YouTube-video" allow="accelerometer; encrypted-media; gyroscope; picture-in-picture; fullscreen" allowfullscreen style="position:absolute;top:0;left:0;width:100%;height:100%;border:0;"></iframe></div></div>`, keep);
+  } else if (/\.(mp4|webm|mov)(\?|#|$)/i.test(u)) {
+    insertBlock(videoTag(u), keep);
+  } else return say("Det ligner hverken et YouTube-link eller en videofil", "err");
+  say("Video indsat – husk at gemme");
+};
+
+document.getElementById("mf-meta-toggle").onclick =() => document.getElementById("mf-meta").classList.toggle("open");
 ["mf-title", "mf-legend", "mf-pub"].forEach((id) => document.getElementById(id).addEventListener("input", markDirty));
 document.getElementById("mf-legend").addEventListener("input", (e) => zone.querySelectorAll("legend").forEach((l) => (l.textContent = e.target.value)));
 document.getElementById("mf-save").onclick = save;
@@ -274,22 +464,124 @@ zone.addEventListener("click", (e) => {
   if (btn) {
     const sec = btn.closest(".mf-sec");
     const act = btn.dataset.act;
-    if (act === "up" && sec.previousElementSibling) sec.previousElementSibling.before(sec);
-    if (act === "down" && sec.nextElementSibling) sec.nextElementSibling.after(sec);
-    if (act === "add") sec.after(newTextSection());
-    if (act === "del" && confirm("Slet hele sektionen?")) sec.remove();
+    if (act === "drag") return;
+    const block = blockOf(sec);
+    if (act === "up" && block.previousElementSibling) block.previousElementSibling.before(block);
+    if (act === "down" && block.nextElementSibling) block.nextElementSibling.after(block);
+    if (act === "add") block.after(newTextSection());
+    if (act === "w") { sec.dataset.w = String(((+sec.dataset.w || 1) % 3) + 1); applyWidth(sec); }
+    if (act === "del") { if (!confirm("Slet hele sektionen?")) return; sec.remove(); normalize(); }
     markDirty();
     return;
   }
   // Links skal ikke åbne, mens man redigerer.
   if (e.target.closest("a")) e.preventDefault();
 });
+// --- Træk og slip (mus og touch) ---
+const ind = Object.assign(document.createElement("div"), { className: "mf-ind" });
+const ghost = Object.assign(document.createElement("div"), { className: "mf-ghost", textContent: "Flytter sektion…" });
+document.body.append(ind, ghost);
+let drag = null; // { sec, target, pos, ok, pointerId }
+
+function dropInfo(x, y) {
+  const el = document.elementFromPoint(x, y);
+  let target = el && el.closest ? el.closest(".mf-sec") : null;
+  if (target && (target === drag.sec || drag.sec.contains(target))) return { target: drag.sec, pos: "self" };
+  if (!target) {
+    // Under sidste sektion: læg den nederst
+    const last = zone.lastElementChild;
+    if (last && y > last.getBoundingClientRect().bottom && zone.contains(el || zone)) return { target: last, pos: "end" };
+    if (last && el && (el === zone || el.closest(".mf-add"))) return { target: last, pos: "end" };
+    return null;
+  }
+  const r = target.getBoundingClientRect();
+  const fx = (x - r.left) / r.width;
+  let pos = fx < 0.22 ? "left" : fx > 0.78 ? "right" : y < r.top + r.height / 2 ? "before" : "after";
+  return { target, pos };
+}
+function canSide(target) {
+  const row = target.parentElement.classList.contains("mf-row") ? target.parentElement : null;
+  if (!row) return true;
+  const n = row.querySelectorAll(":scope > .mf-sec").length;
+  return drag.sec.parentElement === row || n < MAX_COLS;
+}
+function showInd(info) {
+  if (!info || info.pos === "self") { ind.style.display = "none"; return; }
+  const side = info.pos === "left" || info.pos === "right";
+  const ok = !side || canSide(info.target);
+  const box = (side ? info.target : blockOf(info.target)).getBoundingClientRect();
+  ind.className = "mf-ind" + (ok ? "" : " bad");
+  ind.style.display = "block";
+  if (side) Object.assign(ind.style, { left: (info.pos === "left" ? box.left - 6 : box.right + 2) + "px", top: box.top + "px", width: "4px", height: box.height + "px" });
+  else Object.assign(ind.style, { left: box.left + "px", top: (info.pos === "before" ? box.top - 6 : box.bottom + 2) + "px", width: box.width + "px", height: "4px" });
+  ghost.textContent = ok ? ({ left: "Slip: kolonne til venstre", right: "Slip: kolonne til højre", before: "Slip: over", after: "Slip: under", end: "Slip: nederst" })[info.pos] : "Højst 3 kolonner i en række";
+  info.ok = ok;
+}
+function doDrop(info) {
+  const { sec } = drag;
+  const t = info.target;
+  if (info.pos === "before") blockOf(t).before(sec);
+  else if (info.pos === "after") blockOf(t).after(sec);
+  else if (info.pos === "end") zone.append(sec);
+  else {
+    let row = t.parentElement.classList.contains("mf-row") ? t.parentElement : null;
+    if (!row) { row = makeRow(); t.replaceWith(row); row.append(t); }
+    if (info.pos === "left") t.before(sec); else t.after(sec);
+  }
+  normalize();
+  markDirty();
+}
+let scrollTimer = null;
+function autoScroll(y) {
+  clearInterval(scrollTimer);
+  const edge = 70, topH = document.getElementById("mf-top").offsetHeight;
+  const dy = y < topH + edge ? -14 : y > innerHeight - edge ? 14 : 0;
+  if (dy) scrollTimer = setInterval(() => { scrollBy(0, dy); if (drag) showInd(drag.info = dropInfo(drag.x, drag.y)); }, 16);
+}
+function endDrag(apply) {
+  if (!drag) return;
+  clearInterval(scrollTimer);
+  if (apply && drag.info && drag.info.pos !== "self" && drag.info.ok !== false) doDrop(drag.info);
+  drag.sec.classList.remove("mf-dragging");
+  document.body.classList.remove("mf-is-dragging");
+  ind.style.display = ghost.style.display = "none";
+  drag = null;
+}
+zone.addEventListener("pointerdown", (e) => {
+  const h = e.target.closest(".mf-drag");
+  if (!h || !canEdit || e.button > 0) return;
+  e.preventDefault();
+  h.setPointerCapture(e.pointerId);
+  drag = { sec: h.closest(".mf-sec"), x: e.clientX, y: e.clientY, info: null, started: false, sx: e.clientX, sy: e.clientY };
+});
+document.addEventListener("pointermove", (e) => {
+  if (!drag) return;
+  drag.x = e.clientX; drag.y = e.clientY;
+  if (!drag.started) {
+    if (Math.hypot(e.clientX - drag.sx, e.clientY - drag.sy) < 6) return;
+    drag.started = true;
+    drag.sec.classList.add("mf-dragging");
+    document.body.classList.add("mf-is-dragging");
+    ghost.style.display = "block";
+  }
+  Object.assign(ghost.style, { left: e.clientX + 14 + "px", top: e.clientY + 14 + "px" });
+  showInd(drag.info = dropInfo(e.clientX, e.clientY));
+  autoScroll(e.clientY);
+});
+document.addEventListener("pointerup", () => endDrag(drag && drag.started));
+document.addEventListener("pointercancel", () => endDrag(false));
+document.addEventListener("keydown", (e) => { if (e.key === "Escape" && drag) endDrag(false); });
+
 zone.addEventListener("input", markDirty);
 // Formularen vises som reference og må aldrig sende eller navigere under redigering.
 zone.addEventListener("submit", event => event.preventDefault(), true);
 
 // Indsat tekst renses, så der ikke følger skjult formatering eller scripts med.
 zone.addEventListener("paste", (e) => {
+  const img = [...e.clipboardData.files].find((x) => IMG_TYPES.includes(x.type));
+  if (img) { e.preventDefault(); return uploadImage(img, savedRange && savedRange.cloneRange()); }
+  const vid = [...e.clipboardData.files].find((x) => VID_TYPES.includes(x.type));
+  if (vid) { e.preventDefault(); return uploadVideo(vid, savedRange && savedRange.cloneRange()); }
   const html = e.clipboardData.getData("text/html");
   const text = e.clipboardData.getData("text/plain");
   e.preventDefault();

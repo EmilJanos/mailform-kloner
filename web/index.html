@@ -12,6 +12,11 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/dompurify@3.1.6/dist/purify.min.js"></script>
 <script src="config.js"></script>
+<style>
+.mf-row { display: flex; gap: 3%; align-items: flex-start; }
+.mf-col { flex: 1 1 0; min-width: 0; }
+@media (max-width: 660px) { .mf-row { display: block; } }
+</style>
 </head>
 <body class="no-touch">
 <div class="template-content"><div class="container container--main">
@@ -24,6 +29,22 @@
 <script type="module">
 import { db, clean, esc } from "./common.js";
 const zone = document.getElementById("page-zones__main");
+// Sektioner med samme "row" står side om side (2–3 kolonner). Bredde: w = 1–3.
+function mfLayout(secs, htmls) {
+  const out = [];
+  for (let i = 0; i < secs.length; ) {
+    const r = secs[i].row;
+    let j = i + 1;
+    if (r) while (j < secs.length && secs[j].row === r && j - i < 3) j++;
+    if (r && j - i >= 2) {
+      let cols = "";
+      for (let k = i; k < j; k++) cols += `<div class="mf-col" style="flex-grow:${Math.min(3, Math.max(1, Math.round(+secs[k].w || 1)))}">${htmls[k]}</div>`;
+      out.push(`<div class="mf-row">${cols}</div>`);
+    } else out.push(htmls[i]);
+    i = j;
+  }
+  return out.join("");
+}
 let slug = (new URLSearchParams(location.search).get("p") || location.pathname.replace(/^\/|\/$/g, "")).toLowerCase();
 
 if(slug==='missinglink')slug='missing';
@@ -32,13 +53,13 @@ if (!page) { zone.innerHTML = "<p style='text-align:center;padding:60px 0'>Siden
 else {
   document.title = page.title || page.slug;
   const banner = page.published ? "" : "<div class='ole-placeholder'>Kladde: kun du kan se den her</div>";
-  zone.innerHTML = banner + page.sections.map((s) =>
+  zone.innerHTML = banner + mfLayout(page.sections, page.sections.map((s) =>
     s.kind === "placeholder"
       ? (s.html && s.html.trim()
           ? `<div class="widget widget--zone-widget"><div class="bk-content-text content widget__content"><span class="content-block">${clean(s.html)}</span></div></div>`
           : `<div class="ole-placeholder">Tekst indsættes af ejeren</div>`)
       : clean(s.html)
-  ).join("");
+  ));
 
   zone.querySelectorAll('[data-mf-form]').forEach(slot=>{slot.innerHTML='<form class="form contactform__form"><fieldset><legend></legend><label>Din email<input type="email" required></label><label>Besked<textarea required></textarea></label><button type="submit">Send</button></fieldset></form>';});
   // Keep the original form markup and connect it to our own endpoint.
