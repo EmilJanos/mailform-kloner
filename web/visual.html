@@ -6,7 +6,8 @@
 <title>Redigér side</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;700&family=Ubuntu:wght@400;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;700&family=Ubuntu:wght@400;700&family=Montserrat:wght@400;700&family=Oswald:wght@400;700&family=Playfair+Display:wght@400;700&family=Merriweather:wght@400;700&family=Lora:wght@400;700&family=Caveat:wght@400;700&display=swap">
+<link rel="stylesheet" href="/mf-text.css">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
 <link rel="stylesheet" href="/assets/fa785b25128d13618352.css">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
@@ -24,6 +25,8 @@
 .mf-ui button.mf-primary { background: #5061de; border-color: #5061de; color: #fff; font-weight: 600; }
 .mf-ui button.mf-primary:hover { background: #3d4ec9; }
 .mf-ui button.mf-danger:hover { background: #7a2630; border-color: #7a2630; }
+.mf-cl { display: inline-flex; align-items: center; gap: 4px; height: 32px; padding: 0 2px 0 8px; border: 1px solid #3a3c48; border-radius: 6px; background: #262730; color: #eceef6; font: 600 14px/1 system-ui, sans-serif; cursor: pointer; margin: 0; }
+.mf-cl input[type=color] { width: 24px !important; height: 24px !important; border: 0 !important; padding: 0 !important; background: transparent !important; }
 .mf-ui input[type=color] { width: 32px; height: 32px; padding: 2px; border: 1px solid #3a3c48; border-radius: 6px; background: #262730; cursor: pointer; }
 .mf-status { margin-left: auto; font-size: 13px; color: #9a9db0; }
 .mf-status.ok { color: #6fd38c; } .mf-status.err { color: #ff7b7b; }
@@ -77,17 +80,50 @@ body.mf-is-dragging, body.mf-is-dragging * { cursor: grabbing !important; user-s
   <button data-cmd="bold" title="Fed (Ctrl+B)"><b>F</b></button>
   <button data-cmd="italic" title="Kursiv (Ctrl+I)"><i>K</i></button>
   <button data-cmd="underline" title="Understreg (Ctrl+U)"><u>U</u></button>
+  <button data-cmd="strikeThrough" title="Overstreg"><s>S</s></button>
+  <select id="mf-block" title="Afsnitstype">
+    <option value="">Afsnit</option>
+    <option value="h1">Overskrift 1</option>
+    <option value="h2">Overskrift 2</option>
+    <option value="h3">Overskrift 3</option>
+    <option value="div">Normal tekst</option>
+    <option value="blockquote">Citat</option>
+  </select>
+  <select id="mf-font" title="Skrifttype">
+    <option value="">Skrifttype</option>
+    <option value="Open Sans" style="font-family:'Open Sans'">Open Sans</option>
+    <option value="Ubuntu" style="font-family:Ubuntu">Ubuntu</option>
+    <option value="Montserrat" style="font-family:Montserrat">Montserrat</option>
+    <option value="Oswald" style="font-family:Oswald">Oswald</option>
+    <option value="Playfair Display" style="font-family:'Playfair Display'">Playfair Display</option>
+    <option value="Merriweather" style="font-family:Merriweather">Merriweather</option>
+    <option value="Lora" style="font-family:Lora">Lora</option>
+    <option value="Caveat" style="font-family:Caveat">Caveat (håndskrift)</option>
+    <option value="Georgia" style="font-family:Georgia">Georgia</option>
+    <option value="Courier New" style="font-family:'Courier New'">Courier</option>
+  </select>
   <select id="mf-size" title="Tekststørrelse">
     <option value="">Størrelse</option>
+    <option value="1">Mini</option>
     <option value="2">Lille</option>
     <option value="3">Normal</option>
+    <option value="4">Mellem</option>
     <option value="5">Stor</option>
+    <option value="6">Meget stor</option>
     <option value="7">Kæmpe</option>
   </select>
-  <input type="color" id="mf-color" value="#ffffff" title="Tekstfarve">
+  <label class="mf-cl" title="Tekstfarve">A<input type="color" id="mf-color" value="#ffffff"></label>
+  <label class="mf-cl" title="Baggrundsfarve (overstregning med farve)"><span style="background:#ffe066;color:#000;padding:0 3px;border-radius:2px">ab</span><input type="color" id="mf-bg" value="#ffe066"></label>
   <span class="mf-sep"></span>
   <button data-cmd="justifyLeft" title="Venstrestil">⟸</button>
   <button data-cmd="justifyCenter" title="Centrér">≡</button>
+  <button data-cmd="justifyRight" title="Højrestil">⟹</button>
+  <button data-cmd="justifyFull" title="Lige margen">☰</button>
+  <span class="mf-sep"></span>
+  <button data-cmd="insertUnorderedList" title="Punktliste">• Liste</button>
+  <button data-cmd="insertOrderedList" title="Nummereret liste">1. Liste</button>
+  <button data-cmd="insertHorizontalRule" title="Skillelinje">―</button>
+  <button id="mf-clear" title="Fjern al formatering fra den markerede tekst">Ryd format</button>
   <span class="mf-sep"></span>
   <button id="mf-link" title="Lav markeret tekst til et link">🔗 Link</button>
   <button data-cmd="unlink" title="Fjern link">Fjern link</button>
@@ -359,7 +395,14 @@ function restore() {
   sel.addRange(savedRange);
   return true;
 }
-const exec = (cmd, val = null) => { restore(); document.execCommand(cmd, false, val); markDirty(); };
+const CSS_CMDS = new Set(["foreColor", "hiliteColor", "fontName", "fontSize"]);
+const exec = (cmd, val = null) => {
+  restore();
+  // Farver, skrift og størrelse som style="" i stedet for gamle <font>-tags
+  document.execCommand("styleWithCSS", false, CSS_CMDS.has(cmd));
+  document.execCommand(cmd, false, val);
+  markDirty();
+};
 
 const top = document.getElementById("mf-top");
 top.addEventListener("mousedown", (e) => { if (e.target.closest("button")) e.preventDefault(); });
@@ -369,6 +412,21 @@ document.querySelector('[data-cmd="redo"]').onclick = () => histStep(1);
 updateHistButtons();
 document.getElementById("mf-size").onchange = (e) => { if (e.target.value) exec("fontSize", e.target.value); e.target.value = ""; };
 document.getElementById("mf-color").oninput = (e) => exec("foreColor", e.target.value);
+document.getElementById("mf-bg").oninput = (e) => exec("hiliteColor", e.target.value);
+document.getElementById("mf-font").onchange = (e) => { if (e.target.value) exec("fontName", e.target.value); e.target.value = ""; };
+document.getElementById("mf-block").onchange = (e) => { if (e.target.value) exec("formatBlock", "<" + e.target.value + ">"); e.target.value = ""; };
+document.getElementById("mf-clear").onclick = () => {
+  // Husk linjernes justering (centreret osv.), så kun tekstens formatering ryddes
+  const aligns = [];
+  if (savedRange) zone.querySelectorAll(".mf-body *").forEach((el) => { if (el.style && el.style.textAlign && savedRange.intersectsNode(el)) aligns.push([el, el.style.textAlign]); });
+  exec("removeFormat");
+  aligns.forEach(([el, ta]) => { if (el.isConnected) el.style.textAlign = ta; });
+  // Fjern også style="" på markerede spans (farve, skrift, størrelse)
+  if (savedRange) {
+    const root = savedRange.commonAncestorContainer.nodeType === 1 ? savedRange.commonAncestorContainer : savedRange.commonAncestorContainer.parentElement;
+    root.querySelectorAll("span[style], font").forEach((el) => { if (savedRange.intersectsNode(el)) el.replaceWith(...el.childNodes); });
+  }
+};
 
 const okUrl = (u) => /^(https?:\/\/|mailto:|\/|#)/i.test(u);
 document.getElementById("mf-link").onclick = () => {

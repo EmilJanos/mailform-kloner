@@ -1,0 +1,13 @@
+/* Tekstformater fra editoren (overskrifter, lister, citat, skillelinje). Bruges både på siden og i editoren. */
+#page-zones__main h1, #page-zones__main h2, #page-zones__main h3 { font-family: Ubuntu, "Open Sans", sans-serif; font-weight: 700; color: #fff; margin: 0.4em 0 0.3em; line-height: 1.2; }
+#page-zones__main h1 { font-size: 36px; }
+#page-zones__main h2 { font-size: 28px; }
+#page-zones__main h3 { font-size: 22px; }
+@media (max-width: 660px) { #page-zones__main h1 { font-size: 28px; } #page-zones__main h2 { font-size: 23px; } #page-zones__main h3 { font-size: 19px; } }
+#page-zones__main blockquote { margin: 0.6em auto; padding: 0.4em 1em; border-left: 4px solid rgb(80, 97, 222); font-style: italic; color: #d6d8e6; max-width: 760px; text-align: left; }
+#page-zones__main ul, #page-zones__main ol { margin: 0.5em 0; padding-left: 1.6em; text-align: left; display: inline-block; }
+#page-zones__main ul { list-style: disc; } #page-zones__main ol { list-style: decimal; }
+#page-zones__main li { line-height: 1.6; margin: 0.15em 0; }
+#page-zones__main hr { border: 0; border-top: 1px solid rgba(137, 140, 162, 0.35); margin: 1.2em 0; }
+#page-zones__main s, #page-zones__main strike { text-decoration: line-through; }
+#page-zones__main li { font-size: inherit; color: inherit; }
