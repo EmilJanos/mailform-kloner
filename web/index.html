@@ -66,6 +66,14 @@ else {
   // Keep the original form markup and connect it to our own endpoint.
   zone.querySelectorAll('form').forEach(form => {
     const legend=form.querySelector('legend'); if(legend) legend.textContent=page.legend;
+    const em=form.querySelector('input[type=email]');
+    if(em&&!form.querySelector('input[type=tel]')){
+      const box=em.closest('.form-group')||em.parentElement;
+      const c=box.cloneNode(true),inp=c.querySelector('input'),lab=c.querySelector('label');
+      if(inp){inp.type='tel';inp.value='';inp.removeAttribute('id');inp.name='phone';inp.setAttribute('autocomplete','tel');inp.setAttribute('inputmode','tel');inp.maxLength=30;inp.placeholder='Telefonnummer (valgfrit)';inp.removeAttribute('aria-required');inp.classList.remove('js-email-input');}
+      if(lab){lab.removeAttribute('for');lab.textContent='Telefonnummer (valgfrit)';}
+      if(inp)box.after(c);
+    }
     const trap=document.createElement('input'); trap.name='website';trap.tabIndex=-1;trap.autocomplete='off';trap.style.cssText='position:absolute;left:-9999px';trap.setAttribute('aria-hidden','true');form.append(trap);
     const status=document.createElement('div');status.setAttribute('role','status');form.append(status);
     form.addEventListener('submit',async event=>{
