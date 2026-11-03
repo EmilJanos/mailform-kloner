@@ -1,0 +1,42 @@
+[
+  {
+    "slug": "vores",
+    "sections": 93,
+    "images": 511,
+    "links": 571,
+    "forms": 0,
+    "iframes": 0,
+    "textCharacters": 14487,
+    "placeholders": 0
+  },
+  {
+    "slug": "teamjk",
+    "sections": 21,
+    "images": 25,
+    "links": 67,
+    "forms": 1,
+    "iframes": 0,
+    "textCharacters": 10123,
+    "placeholders": 0
+  },
+  {
+    "slug": "missing",
+    "sections": 52,
+    "images": 69,
+    "links": 174,
+    "forms": 0,
+    "iframes": 0,
+    "textCharacters": 9931,
+    "placeholders": 0
+  },
+  {
+    "slug": "ole",
+    "sections": 21,
+    "images": 16,
+    "links": 59,
+    "forms": 1,
+    "iframes": 1,
+    "textCharacters": 6798,
+    "placeholders": 0
+  }
+]

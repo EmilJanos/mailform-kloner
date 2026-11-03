@@ -27,7 +27,8 @@ Deno.serve(async (req) => {
   const { data: page } = await db.from("pages").select("id,title,published").eq("slug", slug).maybeSingle();
   if (!page || !page.published) return json({ error: "ukendt side" }, 404);
 
-  await db.from("submissions").insert({ page_id: page.id, email, message });
+  const { error: saveError } = await db.from("submissions").insert({ page_id: page.id, email, message });
+  if (saveError) return json({ error: "Kunne ikke gemme beskeden" }, 500);
 
   const { data: st } = await db.from("page_settings").select("form_to_email").eq("page_id", page.id).maybeSingle();
   const key = Deno.env.get("RESEND_API_KEY");
