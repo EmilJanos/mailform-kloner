@@ -56,7 +56,7 @@
 .mf-edit .mf-body img, .mf-edit .mf-video { cursor: grab; -webkit-user-drag: none; }
 .mf-edit .mf-body img { max-width: 100%; }
 .mf-edit iframe, .mf-edit video { pointer-events: none; }
-.mf-egrip { position: fixed; z-index: 1500; width: 18px; height: 20px; display: none; align-items: center; justify-content: center; border-radius: 4px; background: #5061de; color: #fff; cursor: grab; touch-action: none; font: 13px/1 system-ui, sans-serif; user-select: none; box-shadow: 0 1px 4px rgba(0,0,0,0.4); }
+.mf-egrip { position: fixed; z-index: 1500; width: 22px; height: 24px; display: none; align-items: center; justify-content: center; border-radius: 4px; background: #5061de; color: #fff; cursor: grab; touch-action: none; font: 13px/1 system-ui, sans-serif; user-select: none; box-shadow: 0 1px 4px rgba(0,0,0,0.4); }
 .mf-egrip:hover { background: #3d4ec9; }
 .mf-el-dragging { opacity: 0.35; outline: 2px dashed #8d9bff; }
 .mf-grip { position: absolute; left: -34px; top: 0; bottom: 0; width: 10px; display: none; align-items: center; justify-content: center; border-radius: 5px; background: rgba(141,155,255,0.18); color: #b9c1ff; cursor: grab; touch-action: none; font: 15px/1 system-ui, sans-serif; z-index: 15; user-select: none; }
@@ -171,7 +171,7 @@ function sectionEl(s) {
   if (s.w) wrap.dataset.w = String(s.w);
   originals.set(s.id, s);
   wrap.innerHTML = `<div class="mf-grip" contenteditable="false" title="Træk hele boksen – slip til venstre/højre for kolonner"></div><div class="mf-ui mf-bar" contenteditable="false">
-      <button data-act="drag" class="mf-drag" title="Træk for at flytte – slip til venstre/højre for kolonner">⠿ Træk</button>
+      <button data-act="drag" class="mf-drag" title="Flyt hele boksen – slip til venstre/højre for kolonner">⠿ Flyt boks</button>
       <button data-act="up" title="Flyt op">↑</button>
       <button data-act="down" title="Flyt ned">↓</button>
       <button data-act="add" title="Ny tekstblok under denne">+ Tekst</button>
@@ -603,18 +603,27 @@ function movableOf(node) {
   return null;
 }
 const hasContent = (body) => body.textContent.trim() !== "" || !!body.querySelector("img, video, iframe, form, .gallery, .mf-video, hr");
-const egrip = Object.assign(document.createElement("div"), { className: "mf-egrip", title: "Tag fat og træk elementet", textContent: "⠿" });
+const egrip = Object.assign(document.createElement("div"), { className: "mf-egrip", title: "Flyt denne linje / dette billede", textContent: "⠿" });
 document.body.append(egrip);
-let egripFor = null;
+let egripFor = null, egripHide = null, onEgrip = false;
+// Skjul først efter en pause, så man kan nå hen til grebet
+function laterHide() { clearTimeout(egripHide); egripHide = setTimeout(() => { if (!onEgrip && !eDrag) placeEgrip(null); }, 700); }
 function placeEgrip(el) {
+  clearTimeout(egripHide);
   egripFor = el;
   if (!el || !canEdit || drag || eDrag) { egrip.style.display = "none"; return; }
   const r = el.getBoundingClientRect();
-  Object.assign(egrip.style, { display: "flex", left: Math.max(2, r.left - 22) + "px", top: r.top + Math.min(r.height, 28) / 2 - 10 + "px" });
+  Object.assign(egrip.style, { display: "flex", left: Math.max(2, r.left - 26) + "px", top: r.top + Math.min(r.height, 28) / 2 - 12 + "px" });
 }
-zone.addEventListener("mousemove", (e) => { if (!eDrag && !drag && !e.target.closest(".mf-grip, .mf-bar")) placeEgrip(movableOf(e.target)); });
-egrip.addEventListener("mouseleave", (e) => { if (!zone.contains(e.relatedTarget)) placeEgrip(null); });
-zone.addEventListener("mouseleave", (e) => { if (e.relatedTarget !== egrip) placeEgrip(null); });
+zone.addEventListener("mousemove", (e) => {
+  if (eDrag || drag || onEgrip) return;
+  const m = e.target.closest(".mf-grip, .mf-bar") ? null : movableOf(e.target);
+  if (m) { if (m !== egripFor || egrip.style.display === "none") placeEgrip(m); else clearTimeout(egripHide); }
+  else laterHide();
+});
+egrip.addEventListener("mouseenter", () => { onEgrip = true; clearTimeout(egripHide); });
+egrip.addEventListener("mouseleave", () => { onEgrip = false; laterHide(); });
+zone.addEventListener("mouseleave", laterHide);
 addEventListener("scroll", () => { if (egripFor && !eDrag) placeEgrip(egripFor); }, { passive: true });
 // Touch: grebet følger markøren, når man trykker i en tekst
 document.addEventListener("selectionchange", () => { if (matchMedia("(hover: none)").matches && !eDrag) { const a = getSelection().anchorNode; placeEgrip(a && zone.contains(a) ? movableOf(a) : null); } });
