@@ -1,0 +1,285 @@
+<!doctype html>
+<html lang="da">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Redigér side</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;700&family=Ubuntu:wght@400;700&display=swap">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+<link rel="stylesheet" href="/assets/fa785b25128d13618352.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/dompurify@3.1.6/dist/purify.min.js"></script>
+<script src="config.js"></script>
+<style>
+/* Editorens egne knapper. Alt har mf- foran, så sidens stil ikke rammer det. */
+.mf-ui, .mf-ui * { box-sizing: border-box; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; letter-spacing: 0; text-transform: none; line-height: 1.3; }
+.mf-top { position: sticky; top: 0; z-index: 1000; background: #15161c; border-bottom: 1px solid #3a3c48; padding: 8px 12px; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; color: #eceef6; font-size: 14px; }
+.mf-top .mf-sep { width: 1px; height: 24px; background: #3a3c48; margin: 0 4px; }
+.mf-ui button, .mf-ui select, .mf-ui input[type=text] { all: unset; box-sizing: border-box; cursor: pointer; height: 32px; min-width: 32px; padding: 0 9px; border: 1px solid #3a3c48; border-radius: 6px; background: #262730; color: #eceef6; font-size: 14px; display: inline-flex; align-items: center; justify-content: center; gap: 5px; }
+.mf-ui input[type=text] { cursor: text; min-width: 160px; }
+.mf-ui button:hover, .mf-ui select:hover { background: #31333e; }
+.mf-ui button:focus-visible, .mf-ui select:focus-visible, .mf-ui input:focus-visible { outline: 2px solid #8d9bff; outline-offset: 1px; }
+.mf-ui button.mf-primary { background: #5061de; border-color: #5061de; color: #fff; font-weight: 600; }
+.mf-ui button.mf-primary:hover { background: #3d4ec9; }
+.mf-ui button.mf-danger:hover { background: #7a2630; border-color: #7a2630; }
+.mf-ui input[type=color] { width: 32px; height: 32px; padding: 2px; border: 1px solid #3a3c48; border-radius: 6px; background: #262730; cursor: pointer; }
+.mf-status { margin-left: auto; font-size: 13px; color: #9a9db0; }
+.mf-status.ok { color: #6fd38c; } .mf-status.err { color: #ff7b7b; }
+.mf-meta { display: none; width: 100%; gap: 6px; flex-wrap: wrap; align-items: center; padding-top: 6px; }
+.mf-meta.open { display: flex; }
+.mf-meta label { font-size: 13px; color: #9a9db0; display: inline-flex; align-items: center; gap: 6px; margin: 0; padding: 0; font-family: inherit; }
+
+/* Sektioner */
+.mf-sec { position: relative; outline: 1px dashed transparent; outline-offset: 4px; margin-bottom: 8px; }
+.mf-sec:hover, .mf-sec:focus-within { outline-color: rgba(141, 155, 255, 0.55); }
+.mf-bar { position: absolute; top: -14px; right: 0; z-index: 20; display: none; gap: 4px; }
+.mf-sec:hover > .mf-bar, .mf-sec:focus-within > .mf-bar { display: flex; }
+.mf-bar button { height: 26px; min-width: 26px; padding: 0 7px; font-size: 12px; }
+.mf-body { min-height: 40px; outline: none; cursor: text; }
+.mf-body:empty::before { content: attr(data-hint); display: block; padding: 14px; border: 1px dashed rgba(137,140,162,0.6); color: rgb(137,140,162); text-align: center; font-size: 13px; }
+.mf-ph { border: 1px dashed rgba(137,140,162,0.6); padding: 10px; }
+.mf-lockbox { position: relative; }
+.mf-lockbox::after { content: attr(data-mf-label); position: absolute; top: 4px; left: 4px; z-index: 5; background: rgba(21,22,28,0.85); color: #eceef6; font: 12px/1.4 system-ui, sans-serif; padding: 2px 6px; border-radius: 4px; pointer-events: none; }
+/* Galleriet vises som almindelige billeder mens man redigerer */
+.mf-edit .gallery__image { display: block; width: 100%; height: 100%; object-fit: cover; }
+.mf-add { display: flex; justify-content: center; padding: 10px 0 40px; }
+</style>
+</head>
+<body class="no-touch mf-edit">
+<div class="mf-ui mf-top" id="mf-top">
+  <button id="mf-back" title="Tilbage til mine sider">← Tilbage</button>
+  <span class="mf-sep"></span>
+  <button data-cmd="bold" title="Fed (Ctrl+B)"><b>F</b></button>
+  <button data-cmd="italic" title="Kursiv (Ctrl+I)"><i>K</i></button>
+  <button data-cmd="underline" title="Understreg (Ctrl+U)"><u>U</u></button>
+  <select id="mf-size" title="Tekststørrelse">
+    <option value="">Størrelse</option>
+    <option value="2">Lille</option>
+    <option value="3">Normal</option>
+    <option value="5">Stor</option>
+    <option value="7">Kæmpe</option>
+  </select>
+  <input type="color" id="mf-color" value="#ffffff" title="Tekstfarve">
+  <span class="mf-sep"></span>
+  <button data-cmd="justifyLeft" title="Venstrestil">⟸</button>
+  <button data-cmd="justifyCenter" title="Centrér">≡</button>
+  <span class="mf-sep"></span>
+  <button id="mf-link" title="Lav markeret tekst til et link">🔗 Link</button>
+  <button data-cmd="unlink" title="Fjern link">Fjern link</button>
+  <button id="mf-img" title="Indsæt billede fra en adresse">🖼 Billede</button>
+  <span class="mf-sep"></span>
+  <button data-cmd="undo" title="Fortryd (Ctrl+Z)">↶</button>
+  <button data-cmd="redo" title="Gentag (Ctrl+Y)">↷</button>
+  <button id="mf-meta-toggle" title="Titel, formular-overskrift og udgivelse">⚙ Indstillinger</button>
+  <button id="mf-view" title="Åbn den rigtige side i en ny fane">Se siden</button>
+  <button class="mf-primary" id="mf-save" title="Gem (Ctrl+S)">Gem</button>
+  <span class="mf-status" id="mf-status" role="status">Henter…</span>
+  <div class="mf-meta" id="mf-meta">
+    <label>Titel <input type="text" id="mf-title"></label>
+    <label>Overskrift over formular <input type="text" id="mf-legend"></label>
+    <label><input type="checkbox" id="mf-pub"> Udgivet</label>
+  </div>
+</div>
+
+<div class="template-content"><div class="container container--main">
+  <header class="template-header"><div class="container"></div></header>
+  <section class="page page--default"><div class="zone-content"><div class="container">
+    <section class="bk-zone column" id="page-zones__main"></section>
+    <div class="mf-ui mf-add"><button id="mf-add-end">+ Ny tekstblok nederst</button></div>
+  </div></div></section>
+</div></div>
+<footer class="template-footer"><div class="container"></div></footer>
+
+<script type="module">
+import { db, clean } from "./common.js";
+
+const zone = document.getElementById("page-zones__main");
+const statusEl = document.getElementById("mf-status");
+const say = (t, c = "") => { statusEl.textContent = t; statusEl.className = "mf-status " + c; };
+const slug = (new URLSearchParams(location.search).get("p") || "").toLowerCase();
+let page = null;
+let dirty = false;
+const markDirty = () => { if (!dirty) { dirty = true; say("Ikke gemt"); } };
+
+// Ting der ikke må redigeres som tekst (formularer, galleri, video) låses og får en lille mærkat.
+const LOCKS = [
+  ["form", "Formular – virker på den rigtige side"],
+  [".gallery", "Galleri – rettes i HTML-visning"],
+  ["iframe", null],
+];
+function lock(root) {
+  for (const [sel, label] of LOCKS) {
+    root.querySelectorAll(sel).forEach((el) => {
+      el.setAttribute("contenteditable", "false");
+      el.setAttribute("data-mf-lock", "");
+      if (label) { el.classList.add("mf-lockbox"); el.setAttribute("data-mf-label", label); }
+    });
+  }
+}
+function unlock(root) {
+  root.querySelectorAll("[data-mf-lock]").forEach((el) => {
+    el.removeAttribute("contenteditable");
+    el.removeAttribute("data-mf-lock");
+    el.removeAttribute("data-mf-label");
+    el.classList.remove("mf-lockbox");
+    if (!el.getAttribute("class")) el.removeAttribute("class");
+  });
+}
+
+function sectionEl(s) {
+  const wrap = document.createElement("div");
+  wrap.className = "mf-sec";
+  wrap.dataset.kind = s.kind;
+  wrap.dataset.id = s.id;
+  wrap.innerHTML = `<div class="mf-ui mf-bar" contenteditable="false">
+      <button data-act="up" title="Flyt op">↑</button>
+      <button data-act="down" title="Flyt ned">↓</button>
+      <button data-act="add" title="Ny tekstblok under denne">+ Tekst</button>
+      <button data-act="del" class="mf-danger" title="Slet sektionen">Slet</button>
+    </div>`;
+  const body = document.createElement("div");
+  body.className = "mf-body" + (s.kind === "placeholder" ? " mf-ph" : "");
+  body.contentEditable = "true";
+  body.dataset.hint = s.kind === "placeholder" ? "Tekst indsættes af ejeren – klik og skriv" : "Klik og skriv";
+  body.innerHTML = clean(s.html || "");
+  lock(body);
+  wrap.append(body);
+  return wrap;
+}
+
+function newTextSection() {
+  return sectionEl({
+    id: "s" + Date.now(),
+    kind: "html",
+    html: '<div class="widget widget--zone-widget"><div class="bk-content-text content widget__content"><span class="content-block"><div style="text-align: center;">Ny tekst</div></span></div></div>',
+  });
+}
+
+function collect() {
+  return [...zone.querySelectorAll(":scope > .mf-sec")].map((w) => {
+    const copy = w.querySelector(".mf-body").cloneNode(true);
+    unlock(copy);
+    return { id: w.dataset.id, kind: w.dataset.kind, html: clean(copy.innerHTML).trim() };
+  });
+}
+
+async function save() {
+  if (!page) return;
+  say("Gemmer…");
+  const { error } = await db.from("pages").update({
+    sections: collect(),
+    title: document.getElementById("mf-title").value,
+    legend: document.getElementById("mf-legend").value,
+    published: document.getElementById("mf-pub").checked,
+  }).eq("id", page.id);
+  if (error) return say("Fejl: " + error.message, "err");
+  dirty = false;
+  say("Gemt " + new Date().toLocaleTimeString("da-DK", { hour: "2-digit", minute: "2-digit" }), "ok");
+}
+
+// --- Start ---
+const { data: { session } } = await db.auth.getSession();
+if (!session) { location.href = "edit.html"; }
+else if (!slug) { say("Ingen side valgt", "err"); }
+else {
+  const { data, error } = await db.from("pages").select("id,slug,title,legend,sections,published,owner_id").eq("slug", slug).maybeSingle();
+  if (error || !data) say("Siden findes ikke", "err");
+  else {
+    page = data;
+    document.title = "Redigér: " + (page.title || page.slug);
+    document.getElementById("mf-title").value = page.title || "";
+    document.getElementById("mf-legend").value = page.legend || "";
+    document.getElementById("mf-pub").checked = !!page.published;
+    zone.replaceChildren(...page.sections.map(sectionEl));
+    zone.querySelectorAll("legend").forEach((l) => (l.textContent = page.legend));
+    if (page.owner_id !== session.user.id) say("Du ejer ikke siden – du kan ikke gemme", "err");
+    else say("Klar. Klik på en tekst for at rette den.");
+  }
+}
+
+// --- Værktøjslinje ---
+// Behold markeringen, når man klikker på en knap.
+let savedRange = null;
+document.addEventListener("selectionchange", () => {
+  const sel = getSelection();
+  if (sel.rangeCount && sel.anchorNode && zone.contains(sel.anchorNode)) savedRange = sel.getRangeAt(0).cloneRange();
+});
+function restore() {
+  if (!savedRange) return false;
+  const sel = getSelection();
+  sel.removeAllRanges();
+  sel.addRange(savedRange);
+  return true;
+}
+const exec = (cmd, val = null) => { restore(); document.execCommand(cmd, false, val); markDirty(); };
+
+const top = document.getElementById("mf-top");
+top.addEventListener("mousedown", (e) => { if (e.target.closest("button")) e.preventDefault(); });
+top.querySelectorAll("[data-cmd]").forEach((b) => (b.onclick = () => exec(b.dataset.cmd)));
+document.getElementById("mf-size").onchange = (e) => { if (e.target.value) exec("fontSize", e.target.value); e.target.value = ""; };
+document.getElementById("mf-color").oninput = (e) => exec("foreColor", e.target.value);
+
+const okUrl = (u) => /^(https?:\/\/|mailto:|\/|#)/i.test(u);
+document.getElementById("mf-link").onclick = () => {
+  if (!restore() || getSelection().isCollapsed) return say("Markér først den tekst, der skal være et link", "err");
+  const keep = savedRange.cloneRange();
+  const url = prompt("Hvor skal linket føre hen? (fx https://…)", "https://");
+  if (!url || !okUrl(url.trim())) return;
+  savedRange = keep;
+  exec("createLink", url.trim());
+  const a = getSelection().anchorNode?.parentElement?.closest("a");
+  if (a && /^https?:/i.test(a.getAttribute("href") || "")) a.setAttribute("target", "_blank");
+};
+document.getElementById("mf-img").onclick = () => {
+  if (!savedRange) return say("Klik først der, hvor billedet skal stå", "err");
+  const keep = savedRange.cloneRange();
+  const url = prompt("Adresse på billedet (https://…)", "https://");
+  if (!url || !/^https:\/\//i.test(url.trim())) return;
+  savedRange = keep;
+  exec("insertImage", url.trim());
+};
+
+document.getElementById("mf-meta-toggle").onclick = () => document.getElementById("mf-meta").classList.toggle("open");
+["mf-title", "mf-legend", "mf-pub"].forEach((id) => document.getElementById(id).addEventListener("input", markDirty));
+document.getElementById("mf-legend").addEventListener("input", (e) => zone.querySelectorAll("legend").forEach((l) => (l.textContent = e.target.value)));
+document.getElementById("mf-save").onclick = save;
+document.getElementById("mf-view").onclick = () => page && window.open("/" + page.slug, "_blank");
+document.getElementById("mf-back").onclick = () => { location.href = "edit.html"; };
+document.getElementById("mf-add-end").onclick = () => { zone.append(newTextSection()); markDirty(); };
+
+// --- Sektionsknapper ---
+zone.addEventListener("click", (e) => {
+  const btn = e.target.closest(".mf-bar button");
+  if (btn) {
+    const sec = btn.closest(".mf-sec");
+    const act = btn.dataset.act;
+    if (act === "up" && sec.previousElementSibling) sec.previousElementSibling.before(sec);
+    if (act === "down" && sec.nextElementSibling) sec.nextElementSibling.after(sec);
+    if (act === "add") sec.after(newTextSection());
+    if (act === "del" && confirm("Slet hele sektionen?")) sec.remove();
+    markDirty();
+    return;
+  }
+  // Links skal ikke åbne, mens man redigerer.
+  if (e.target.closest("a")) e.preventDefault();
+});
+zone.addEventListener("input", markDirty);
+
+// Indsat tekst renses, så der ikke følger skjult formatering eller scripts med.
+zone.addEventListener("paste", (e) => {
+  const html = e.clipboardData.getData("text/html");
+  const text = e.clipboardData.getData("text/plain");
+  e.preventDefault();
+  if (html) document.execCommand("insertHTML", false, DOMPurify.sanitize(html, { FORBID_TAGS: ["style", "script", "form", "iframe"], FORBID_ATTR: ["class", "id"] }));
+  else document.execCommand("insertText", false, text);
+});
+
+document.addEventListener("keydown", (e) => {
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s") { e.preventDefault(); save(); }
+});
+window.addEventListener("beforeunload", (e) => { if (dirty) { e.preventDefault(); e.returnValue = ""; } });
+</script>
+</body>
+</html>

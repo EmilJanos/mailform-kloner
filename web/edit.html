@@ -60,13 +60,14 @@ async function listView(user) {
   const { data: mine } = await db.from("pages").select("id,slug,title,published,updated_at").eq("owner_id", user.id).order("updated_at", { ascending: false });
   app.innerHTML = `<div class="row"><h1 class="grow">Mine sider</h1><span class="mut">${esc(user.email)}</span><button class="sec" id="out">Log ud</button></div>
     ${(mine || []).map((p) => `<div class="card row"><div class="grow"><b>${esc(p.title || p.slug)}</b><br><span class="mut">/${esc(p.slug)} · ${p.published ? "udgivet" : "kladde"}</span></div>
-      <a href="index.html?p=${p.slug}" target="_blank">Se</a><button data-edit="${p.id}">Redigér</button></div>`).join("") || "<p class='mut'>Ingen sider endnu.</p>"}
+      <a href="/${p.slug}" target="_blank">Se</a><button class="sec" data-edit="${p.id}">HTML</button><button data-visual="${esc(p.slug)}">Redigér</button></div>`).join("") || "<p class='mut'>Ingen sider endnu.</p>"}
     <h2>Ny side</h2><div class="card">
       <label>Adresse (små bogstaver, tal og bindestreg)</label><input id="ns" placeholder="fx minside">
       <label>Start ud fra</label><select id="tp"></select>
       <p><button id="mk">Opret</button> <span id="msg"></span></p></div>`;
   document.getElementById("out").onclick = async () => { await db.auth.signOut(); start(); };
   app.querySelectorAll("[data-edit]").forEach((b) => (b.onclick = () => editView(b.dataset.edit)));
+  app.querySelectorAll("[data-visual]").forEach((b) => (b.onclick = () => { location.href = "visual.html?p=" + encodeURIComponent(b.dataset.visual); }));
   const { data: tpl } = await db.from("pages").select("slug,title").eq("published", true);
   document.getElementById("tp").innerHTML = (tpl || []).map((t) => `<option value="${esc(t.slug)}">${esc(t.title || t.slug)}</option>`).join("");
   document.getElementById("mk").onclick = async () => {
@@ -75,7 +76,7 @@ async function listView(user) {
     const { data: src } = await db.from("pages").select("legend,sections").eq("slug", document.getElementById("tp").value).single();
     const { data: n, error } = await db.from("pages").insert({ slug, title: slug, legend: src.legend, sections: src.sections, owner_id: user.id }).select("id").single();
     if (error) return msg(error.message.includes("duplicate") ? "Adressen er optaget" : error.message, "err");
-    editView(n.id);
+    location.href = "visual.html?p=" + encodeURIComponent(slug);
   };
 }
 
@@ -89,7 +90,7 @@ async function editView(id) {
 
 function draw() {
   app.innerHTML = `<div class="row"><button class="sec" id="back">← Tilbage</button><h1 class="grow">${esc(page.title || page.slug)}</h1>
-    <a href="index.html?p=${page.slug}" target="_blank">Se siden</a><button id="save">Gem</button></div><p id="msg" class="mut"></p>
+    <a href="visual.html?p=${encodeURIComponent(page.slug)}">Visuel redigering</a> <a href="/${page.slug}" target="_blank">Se siden</a><button id="save">Gem</button></div><p id="msg" class="mut"></p>
     <div class="card"><label>Titel</label><input id="t" value="${esc(page.title)}">
       <label>Overskrift over formularen</label><input id="lg" value="${esc(page.legend)}">
       <label>Beskeder fra formularen sendes til (e-mail)</label><input id="fe" type="email" value="${esc(settings.form_to_email || "")}">
