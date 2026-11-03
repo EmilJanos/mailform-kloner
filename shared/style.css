@@ -1,0 +1,173 @@
+/* Tro kopi af mailform.dk/ole (BaseKit-tema), skåret til de regler siden bruger.
+   Skrifttyper: Open Sans og Ubuntu hentes fra Google Fonts i index.html.
+   Ikoner i formularen: Font Awesome 4.7 (se index.html). */
+
+html { font-family: sans-serif; text-size-adjust: 100%; }
+body { margin: 0; }
+footer, header, section { display: block; }
+a { background: transparent; }
+a:active, a:hover { outline: 0; }
+b, strong { font-weight: bold; }
+img { border: 0; height: auto; }
+button, input, textarea { color: inherit; font: inherit; margin: 0; }
+button { overflow: visible; text-transform: none; appearance: button; cursor: pointer; }
+input { line-height: normal; }
+legend { border: 0; padding: 0; }
+textarea { overflow: auto; }
+a, b, i, strong, iframe, img {
+  background: transparent; border: 0; font: inherit; line-height: 1; margin: 0; padding: 0; vertical-align: baseline;
+}
+i { font-style: italic; text-decoration: none; }
+iframe, img { display: inline-block; max-width: 100%; }
+*, ::before, ::after { box-sizing: border-box; }
+.bk-zone { min-height: 80px; }
+
+body {
+  position: relative;
+  width: 100%;
+  background-color: rgb(48, 49, 58);
+  font-family: "Open Sans", Helvetica, Verdana, sans-serif;
+  font-size: 15px; font-weight: 400; line-height: 28px;
+  color: rgb(137, 140, 162);
+  text-rendering: optimizelegibility;
+  text-size-adjust: 100%;
+}
+html { width: 100%; }
+
+a { color: rgb(137, 140, 162); text-decoration: none; }
+a:hover { text-decoration: none; }
+
+.responsivecolumns::after { content: ""; display: table; clear: both; }
+.responsivecolumns .column { float: left; min-height: 40px; }
+.responsivecolumns .columns-two-left,
+.responsivecolumns .columns-two-right { width: 48.5%; margin-right: 3%; }
+.responsivecolumns .columns-two-right { margin-right: 0; }
+@media only screen and (max-width: 660px) {
+  .responsivecolumns .columns-two-left,
+  .responsivecolumns .columns-two-right { width: 100%; margin-right: 0; }
+}
+
+fieldset { margin: 0; padding: 0; border: 0; }
+legend { display: block; }
+label { display: block; margin: 0 0 5px; }
+.form-group { margin-bottom: 10px; }
+
+input[type="email"], textarea, .input--single-line {
+  width: 100%;
+  background-color: transparent;
+  border: 0;
+  box-shadow: rgba(137, 140, 162, 0.2) 0 -1px 0 0 inset;
+  font-weight: 400; font-size: 13px; line-height: 27px;
+  display: inline-block;
+  color: rgb(137, 140, 162);
+  border-radius: 0;
+  appearance: none;
+  padding: 0.4em 0;
+  transition: 0.2s;
+}
+@media only screen and (max-width: 769px) {
+  input[type="email"], textarea, .input--single-line { font-size: 16px; line-height: 1.6; }
+}
+input[type="email"]:focus, textarea:focus, .input--single-line:focus {
+  box-shadow: rgb(94, 111, 239) 0 -2px 0 0 inset; outline: 0;
+}
+input[type="email"], .input--single-line { min-height: 35px; }
+textarea { resize: vertical; min-height: 100px; padding: 1em; display: block; }
+input::placeholder, textarea::placeholder { color: rgb(137, 140, 162); }
+input:focus::placeholder { color: transparent; }
+
+button, .button {
+  display: inline-block;
+  padding: 0.4em 14px;
+  border: 0;
+  user-select: none;
+  font-family: Ubuntu, Candara, Futura, sans-serif;
+  font-weight: 400; font-size: 13px; line-height: 27px; letter-spacing: 2px;
+  color: rgb(255, 255, 255);
+  background-color: rgb(80, 97, 222);
+  text-transform: uppercase;
+  transition: 0.2s ease-in-out;
+}
+button:hover, .button:hover { box-shadow: rgb(36, 54, 190) 0 -40px 0 0 inset; color: rgb(255, 255, 255); text-decoration: none; }
+button:focus, .button:focus { outline: none; }
+.hidden { display: none; }
+
+.widget { position: relative; clear: both; }
+.widget::after { content: ""; display: table; clear: both; }
+.widget--zone-widget:not([data-name="row"]) { margin: 0 0 20px; clear: both; }
+.widget--zone-widget:not([data-name="row"])::after { content: ""; display: table; clear: both; }
+.widget__content { overflow-wrap: break-word; hyphens: none; }
+[class*="wysiwyg-font-size"] { overflow-wrap: break-word; line-height: inherit; }
+.wysiwyg-font-size-12 { font-size: 12px; }
+.wysiwyg-font-size-14 { font-size: 14px; }
+
+.template-content { max-width: 1100px; width: 100%; margin: 0 auto; }
+.container--main { width: 90%; max-width: 1100px; margin: 0 auto; }
+.template-header { padding: 30px 0; }
+@media only screen and (max-width: 1000px) { .template-header { padding: 20px 0; } }
+.template-header .container { display: flex; flex-flow: wrap; align-items: center; }
+.template-footer { max-width: 1000px; width: 100%; margin: 0 auto; border-top: 1px solid rgba(137, 140, 162, 0.1); padding: 30px 0; }
+@media only screen and (max-width: 1000px) { .template-footer { padding: 20px 0; } }
+
+.contactform__fieldset { position: relative; }
+.contactform__legend {
+  font-family: Ubuntu, Candara, Futura, sans-serif;
+  font-size: 20px; line-height: 30px; font-weight: 700;
+  color: rgb(255, 255, 255);
+  margin-bottom: 0.6em;
+}
+@media only screen and (min-width: 769px) and (max-width: 1000px) { .contactform__legend { font-size: 22.4px; line-height: 30.4px; } }
+@media only screen and (max-width: 769px) { .contactform__legend { font-size: 19.6px; line-height: 26.6px; } }
+.contactform__form-group { margin-bottom: 20px; }
+@media only screen and (max-width: 769px) { .contactform__form-group { margin-bottom: 10px; } }
+.contactform__form-group:last-of-type { margin-bottom: 0; }
+.contactform__form-group .label--email { display: none; }
+.contactform__form-group .input { padding-left: 2em; }
+.contactform__form-group .label { padding-left: 2em; font-family: Ubuntu, Candara, Futura, sans-serif; font-size: 12px; }
+.contactform__form-body .form-group { position: relative; }
+@media only screen and (max-width: 769px) { .contactform__form-body .form-group { padding-left: 1.5em; } }
+.contactform__form-body .form-group::before {
+  font-family: FontAwesome, sans-serif;
+  position: absolute; left: 0;
+  color: rgb(80, 97, 222);
+  font-size: 14px; line-height: 24px;
+}
+.contactform__form-body .form-group:nth-child(1)::before { content: "\f003"; top: 0.4em; }
+.contactform__form-body .form-group:nth-child(2)::before { content: "\f036"; top: 0.15em; }
+
+@media only screen and (max-width: 769px) { .content { font-size: 14.25px; line-height: 26.6px; } }
+.content a { display: inline-block; line-height: 1.5; color: rgb(255, 255, 255); }
+.content a:hover { text-decoration: none; border-bottom: 2px solid rgb(94, 111, 239); }
+
+/* Tilføjelser til kopien (findes ikke i originalen) */
+.ole-placeholder {
+  margin: 0 0 20px;
+  padding: 14px 16px;
+  border: 1px dashed rgba(137, 140, 162, 0.5);
+  color: rgb(137, 140, 162);
+  text-align: center;
+  font-size: 13px;
+}
+.form-status { margin-top: 10px; font-size: 13px; color: rgb(255, 255, 255); }
+
+/* Galleri (bruges på /teamjk). Billederne sættes som baggrund af et lille script i index.html. */
+figure, ul, li { background: transparent; border: 0; margin: 0; padding: 0; vertical-align: baseline; font: inherit; line-height: 1; }
+figure { display: block; max-width: 100%; }
+.image-link { display: block; font-size: 0; line-height: 0; }
+.image-link:hover { text-decoration: none; }
+.gallery__figure { margin: 0; position: absolute; inset: 0; display: flex; }
+.gallery-list { margin: 0; list-style: none; padding: 0; }
+.gallery__gallery-item { float: left; height: 0; position: relative; margin: 0; }
+.gallery__image-link { display: block; background-size: cover; background-position: center center; flex: 1 1 50%; }
+.gallery__image { display: none; }
+@media only screen and (min-width: 769px) {
+  .gallery__gallery-list .gallery-item { transition: 0.4s; }
+  .gallery__gallery-list:hover .gallery-item { opacity: 0.2; }
+  .gallery__gallery-list:hover .gallery-item:hover { opacity: 1; }
+}
+@media only screen and (min-width: 500px) {
+  .gallery__gallery-item { width: 50%; padding-bottom: 25%; }
+}
+@media only screen and (max-width: 500px) {
+  .gallery__gallery-item { width: 100%; height: auto; padding-bottom: 50%; }
+}

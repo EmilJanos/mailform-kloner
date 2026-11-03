@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="da">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mailform editor</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/dompurify@3.1.6/dist/purify.min.js"></script>
+<script src="config.js"></script>
+<style>
+:root{--bg:#f6f6f8;--fg:#1d1e24;--mut:#6b6e7c;--card:#fff;--line:#dcdde3;--acc:#5061de}
+@media (prefers-color-scheme:dark){:root{--bg:#1b1c22;--fg:#eceef6;--mut:#9a9db0;--card:#262730;--line:#3a3c48}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.5 system-ui,sans-serif}
+main{max-width:860px;margin:0 auto;padding:24px 16px 80px}
+h1{font-size:22px;margin:0 0 16px}h2{font-size:17px;margin:24px 0 8px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px;margin:0 0 12px}
+label{display:block;font-size:13px;color:var(--mut);margin:10px 0 4px}
+input,textarea,select{width:100%;padding:8px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--fg);font:inherit}
+textarea{min-height:130px;font:13px/1.4 ui-monospace,monospace}
+button{padding:8px 14px;border:0;border-radius:6px;background:var(--acc);color:#fff;font:inherit;cursor:pointer}
+button.sec{background:transparent;color:var(--fg);border:1px solid var(--line)}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.row>*{flex:0 0 auto}.grow{flex:1 1 200px!important}
+.mut{color:var(--mut);font-size:13px}.ok{color:#2a9d4a}.err{color:#d33}
+a{color:var(--acc)}
+</style>
+</head>
+<body><main id="app"></main>
+<script type="module">
+import { db, esc } from "./common.js";
+const app = document.getElementById("app");
+let page = null, settings = {};
+
+const msg = (t, c = "") => { const m = document.getElementById("msg"); if (m) { m.textContent = t; m.className = c; } };
+
+async function start() {
+  const { data: { session } } = await db.auth.getSession();
+  if (!session) return loginView();
+  await listView(session.user);
+}
+
+function loginView() {
+  app.innerHTML = `<h1>Log ind</h1><div class="card">
+    <label>Din e-mail (du får et link, ingen adgangskode)</label>
+    <input id="em" type="email" autocomplete="email">
+    <p><button id="go">Send link</button></p><p id="msg" class="mut"></p></div>`;
+  document.getElementById("go").onclick = async () => {
+    const { error } = await db.auth.signInWithOtp({ email: document.getElementById("em").value,
+      options: { emailRedirectTo: location.href.split("#")[0] } });
+    msg(error ? "Fejl: " + error.message : "Tjek din mail og klik på linket.", error ? "err" : "ok");
+  };
+}
+
+async function listView(user) {
+  const { data: mine } = await db.from("pages").select("id,slug,title,published,updated_at").eq("owner_id", user.id).order("updated_at", { ascending: false });
+  app.innerHTML = `<div class="row"><h1 class="grow">Mine sider</h1><span class="mut">${esc(user.email)}</span><button class="sec" id="out">Log ud</button></div>
+    ${(mine || []).map((p) => `<div class="card row"><div class="grow"><b>${esc(p.title || p.slug)}</b><br><span class="mut">/${esc(p.slug)} · ${p.published ? "udgivet" : "kladde"}</span></div>
+      <a href="index.html?p=${p.slug}" target="_blank">Se</a><button data-edit="${p.id}">Redigér</button></div>`).join("") || "<p class='mut'>Ingen sider endnu.</p>"}
+    <h2>Ny side</h2><div class="card">
+      <label>Adresse (små bogstaver, tal og bindestreg)</label><input id="ns" placeholder="fx minside">
+      <label>Start ud fra</label><select id="tp"></select>
+      <p><button id="mk">Opret</button> <span id="msg"></span></p></div>`;
+  document.getElementById("out").onclick = async () => { await db.auth.signOut(); start(); };
+  app.querySelectorAll("[data-edit]").forEach((b) => (b.onclick = () => editView(b.dataset.edit)));
+  const { data: tpl } = await db.from("pages").select("slug,title").eq("published", true);
+  document.getElementById("tp").innerHTML = (tpl || []).map((t) => `<option value="${esc(t.slug)}">${esc(t.title || t.slug)}</option>`).join("");
+  document.getElementById("mk").onclick = async () => {
+    const slug = document.getElementById("ns").value.trim().toLowerCase();
+    if (!/^[a-z0-9][a-z0-9-]{1,40}$/.test(slug)) return msg("Ugyldig adresse", "err");
+    const { data: src } = await db.from("pages").select("legend,sections").eq("slug", document.getElementById("tp").value).single();
+    const { data: n, error } = await db.from("pages").insert({ slug, title: slug, legend: src.legend, sections: src.sections, owner_id: user.id }).select("id").single();
+    if (error) return msg(error.message.includes("duplicate") ? "Adressen er optaget" : error.message, "err");
+    editView(n.id);
+  };
+}
+
+async function editView(id) {
+  const { data } = await db.from("pages").select("*").eq("id", id).single();
+  page = data;
+  const { data: st } = await db.from("page_settings").select("form_to_email").eq("page_id", id).maybeSingle();
+  settings = st || {};
+  draw();
+}
+
+function draw() {
+  app.innerHTML = `<div class="row"><button class="sec" id="back">← Tilbage</button><h1 class="grow">${esc(page.title || page.slug)}</h1>
+    <a href="index.html?p=${page.slug}" target="_blank">Se siden</a><button id="save">Gem</button></div><p id="msg" class="mut"></p>
+    <div class="card"><label>Titel</label><input id="t" value="${esc(page.title)}">
+      <label>Overskrift over formularen</label><input id="lg" value="${esc(page.legend)}">
+      <label>Beskeder fra formularen sendes til (e-mail)</label><input id="fe" type="email" value="${esc(settings.form_to_email || "")}">
+      <label><input type="checkbox" id="pub" style="width:auto" ${page.published ? "checked" : ""}> Udgivet (ellers kun synlig for dig)</label></div>
+    <h2>Sektioner</h2><p class="mut">Hver sektion er HTML. "Pladsholder" er felter ejeren selv udfylder; tomme viser en ramme.</p>
+    ${page.sections.map((s, i) => `<div class="card"><div class="row"><b class="grow">${i + 1}. ${s.kind === "placeholder" ? "Pladsholder" : "Indhold"}</b>
+      <button class="sec" data-up="${i}">↑</button><button class="sec" data-dn="${i}">↓</button><button class="sec" data-rm="${i}">Slet</button></div>
+      <textarea data-i="${i}">${esc(s.html)}</textarea></div>`).join("")}
+    <div class="row"><button class="sec" id="addh">+ Indhold</button><button class="sec" id="addp">+ Pladsholder</button></div>
+    <h2>Beskeder</h2><div id="subs" class="mut">Henter…</div>`;
+  const sync = () => app.querySelectorAll("textarea[data-i]").forEach((t) => (page.sections[t.dataset.i].html = t.value));
+  const move = (i, d) => { sync(); const j = i + d; if (j < 0 || j >= page.sections.length) return; [page.sections[i], page.sections[j]] = [page.sections[j], page.sections[i]]; draw(); };
+  app.querySelectorAll("[data-up]").forEach((b) => (b.onclick = () => move(+b.dataset.up, -1)));
+  app.querySelectorAll("[data-dn]").forEach((b) => (b.onclick = () => move(+b.dataset.dn, 1)));
+  app.querySelectorAll("[data-rm]").forEach((b) => (b.onclick = () => { if (confirm("Slet sektionen?")) { sync(); page.sections.splice(+b.dataset.rm, 1); draw(); } }));
+  const add = (kind) => { sync(); page.sections.push({ id: "s" + Date.now(), kind, html: "" }); draw(); };
+  document.getElementById("addh").onclick = () => add("html");
+  document.getElementById("addp").onclick = () => add("placeholder");
+  document.getElementById("back").onclick = start;
+  document.getElementById("save").onclick = async () => {
+    sync();
+    const { error } = await db.from("pages").update({ title: document.getElementById("t").value, legend: document.getElementById("lg").value,
+      published: document.getElementById("pub").checked, sections: page.sections }).eq("id", page.id);
+    const { error: e2 } = await db.from("page_settings").upsert({ page_id: page.id, form_to_email: document.getElementById("fe").value || null });
+    msg(error || e2 ? "Fejl: " + (error || e2).message : "Gemt " + new Date().toLocaleTimeString("da-DK"), error || e2 ? "err" : "ok");
+  };
+  db.from("submissions").select("email,message,created_at").eq("page_id", page.id).order("created_at", { ascending: false }).limit(50).then(({ data }) => {
+    document.getElementById("subs").innerHTML = (data || []).map((m) => `<div class="card"><b>${esc(m.email)}</b> <span class="mut">${new Date(m.created_at).toLocaleString("da-DK")}</span><br>${esc(m.message).replace(/\n/g, "<br>")}</div>`).join("") || "Ingen endnu.";
+  });
+}
+db.auth.onAuthStateChange((ev) => { if (ev === "SIGNED_IN") start(); });
+start();
+</script>
+</body></html>

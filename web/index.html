@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="da">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mailform</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;700&family=Ubuntu:wght@400;700&display=swap">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+<link rel="stylesheet" href="style.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/dompurify@3.1.6/dist/purify.min.js"></script>
+<script src="config.js"></script>
+</head>
+<body>
+<div class="template-content"><div class="container container--main">
+  <header class="template-header"><div class="container"></div></header>
+  <section class="page page--default"><div class="zone-content"><div class="container">
+    <section class="bk-zone column" id="zone"></section>
+  </div></div></section>
+</div></div>
+<footer class="template-footer"><div class="container"></div></footer>
+<script type="module">
+import { db, clean, esc } from "./common.js";
+const zone = document.getElementById("zone");
+const slug = (new URLSearchParams(location.search).get("p") || location.pathname.replace(/^\/|\/$/g, "")).toLowerCase();
+
+const { data: page } = await db.from("pages").select("id,slug,title,legend,sections,published").eq("slug", slug).maybeSingle();
+if (!page) { zone.innerHTML = "<p style='text-align:center;padding:60px 0'>Siden findes ikke.</p>"; }
+else {
+  document.title = page.title || page.slug;
+  const banner = page.published ? "" : "<div class='ole-placeholder'>Kladde: kun du kan se den her</div>";
+  zone.innerHTML = banner + page.sections.map((s) =>
+    s.kind === "placeholder"
+      ? (s.html && s.html.trim()
+          ? `<div class="widget widget--zone-widget"><div class="bk-content-text content widget__content"><span class="content-block">${clean(s.html)}</span></div></div>`
+          : `<div class="ole-placeholder">Tekst indsættes af ejeren</div>`)
+      : clean(s.html)
+  ).join("");
+
+  // Formularen bliver fjernet af rensningen (form er forbudt i indhold), så den bygges her.
+  zone.querySelectorAll("[data-mf-form]").forEach((slot) => {
+    slot.innerHTML = `<form class="form contactform__form" id="contact-form" novalidate><fieldset class="fieldset contactform__fieldset">
+      <legend class="legend contactform__legend">${esc(page.legend)}</legend>
+      <div class="form-body contactform__form-body">
+        <div class="form-group contactform__form-group"><label class="label label--email contactform__label" for="email">Din email</label>
+          <input class="input input--email input--single-line contactform__input" id="email" type="email" placeholder="Opgiv din emailadresse" autocomplete="email"></div>
+        <div class="form-group contactform__form-group"><label class="label label--message contactform__label" for="message">Skriv din besked og gerne dit telefon-nummer</label>
+          <textarea class="textarea textarea--message contactform__textarea" id="message"></textarea></div>
+        <input type="text" id="website" tabindex="-1" autocomplete="off" style="position:absolute;left:-9999px" aria-hidden="true">
+        <div class="form-group contactform__form-group"><button class="button button--submit contactform__button" type="submit"><span>Send</span></button>
+          <div class="form-status" id="form-status" role="status"></div></div>
+      </div></fieldset></form>`;
+    const f = slot.querySelector("form"), st = slot.querySelector("#form-status");
+    f.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      st.textContent = "Sender…";
+      const { data, error } = await db.functions.invoke("send-form", { body: {
+        slug: page.slug, email: f.email.value, message: f.message.value, website: f.website.value } });
+      if (error || !data?.ok) st.textContent = "Beskeden kunne ikke sendes. Tjek mailadressen og prøv igen.";
+      else { st.textContent = "Tak! Din besked er sendt."; f.reset(); }
+    });
+  });
+
+  // Galleri: billederne vises som baggrund, som i originalen.
+  zone.querySelectorAll(".gallery__image-link").forEach((a) => {
+    const img = a.querySelector("img");
+    if (img) a.style.backgroundImage = `url("${img.src}")`;
+    a.addEventListener("click", (e) => e.preventDefault());
+  });
+}
+</script>
+</body>
+</html>
