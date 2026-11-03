@@ -53,6 +53,9 @@
 .mf-bar .mf-drag { cursor: grab; touch-action: none; }
 .mf-bar .mf-w { display: none; }
 .mf-row > .mf-sec > .mf-bar .mf-w { display: inline-flex; }
+.mf-edit .mf-body img, .mf-edit .mf-video { cursor: grab; -webkit-user-drag: none; }
+.mf-edit .mf-body img { max-width: 100%; }
+.mf-edit iframe, .mf-edit video { pointer-events: none; }
 .mf-sec.mf-dragging { opacity: 0.35; }
 body.mf-is-dragging, body.mf-is-dragging * { cursor: grabbing !important; user-select: none !important; }
 .mf-ind { position: fixed; z-index: 2000; background: #8d9bff; border-radius: 3px; pointer-events: none; display: none; box-shadow: 0 0 0 2px rgba(141,155,255,0.3); }
@@ -548,12 +551,15 @@ function endDrag(apply) {
   ind.style.display = ghost.style.display = "none";
   drag = null;
 }
+zone.addEventListener("dragstart", (e) => { if (e.target.closest && e.target.closest("img, .mf-video")) e.preventDefault(); });
 zone.addEventListener("pointerdown", (e) => {
+  // Fat i knappen, eller direkte i et billede/en video (mus og pen; på touch bruges knappen)
   const h = e.target.closest(".mf-drag");
-  if (!h || !canEdit || e.button > 0) return;
+  const media = !h && e.pointerType !== "touch" && e.target.closest("img, .mf-video, video, iframe");
+  if (!(h || media) || !canEdit || e.button > 0) return;
   e.preventDefault();
-  h.setPointerCapture(e.pointerId);
-  drag = { sec: h.closest(".mf-sec"), x: e.clientX, y: e.clientY, info: null, started: false, sx: e.clientX, sy: e.clientY };
+  if (h) h.setPointerCapture(e.pointerId);
+  drag = { sec: (h || media).closest(".mf-sec"), x: e.clientX, y: e.clientY, info: null, started: false, sx: e.clientX, sy: e.clientY };
 });
 document.addEventListener("pointermove", (e) => {
   if (!drag) return;
