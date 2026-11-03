@@ -133,7 +133,44 @@ let currentUserId = null;
 let canEdit = false;
 let saving = false;
 let editVersion = 0;
-const markDirty = () => { editVersion++; if (!dirty) { dirty = true; say("Ikke gemt"); } };
+const markDirty = () => { editVersion++; if (!dirty) { dirty = true; say("Ikke gemt"); } if (!restoring) scheduleSnap(); };
+
+// --- Fortryd / gentag: egen historik over hele siden (tekst, flytninger, upload, sletning) ---
+let history = [], histPos = -1, snapTimer = null, restoring = false;
+const HIST_MAX = 100;
+function snapNow() {
+  clearTimeout(snapTimer); snapTimer = null;
+  if (!page) return;
+  const state = JSON.stringify(collect());
+  if (history[histPos] === state) return;
+  history = history.slice(0, histPos + 1);
+  history.push(state);
+  if (history.length > HIST_MAX) history.shift();
+  histPos = history.length - 1;
+  updateHistButtons();
+}
+function scheduleSnap() { clearTimeout(snapTimer); snapTimer = setTimeout(snapNow, 600); updateHistButtons(true); }
+function updateHistButtons(pending) {
+  const u = document.querySelector('[data-cmd="undo"]'), r = document.querySelector('[data-cmd="redo"]');
+  if (!u || !canEdit) return;
+  u.disabled = !(pending || histPos > 0);
+  r.disabled = !!pending || histPos >= history.length - 1;
+}
+function histStep(dir) {
+  if (snapTimer) snapNow();
+  const next = histPos + dir;
+  if (next < 0 || next >= history.length) return say(dir < 0 ? "Intet at fortryde" : "Intet at gentage");
+  histPos = next;
+  restoring = true;
+  buildZone(JSON.parse(history[histPos]));
+  zone.querySelectorAll("legend").forEach((l) => (l.textContent = document.getElementById("mf-legend").value));
+  markDirty();
+  restoring = false;
+  savedRange = null;
+  if (typeof placeEgrip === "function") placeEgrip(null);
+  updateHistButtons();
+  say(dir < 0 ? "Fortrudt – husk at gemme" : "Gentaget – husk at gemme");
+}
 
 // Ting der ikke må redigeres som tekst (formularer, galleri, video) låses og får en lille mærkat.
 const LOCKS = [
@@ -296,6 +333,7 @@ else {
     document.getElementById("mf-legend").value = page.legend || "";
     document.getElementById("mf-pub").checked = !!page.published;
     buildZone(page.sections);
+    history = [JSON.stringify(collect())]; histPos = 0;
     zone.querySelectorAll("legend").forEach((l) => (l.textContent = page.legend));
     canEdit = page.owner_id === session.user.id;
     if (!canEdit) {
@@ -326,6 +364,9 @@ const exec = (cmd, val = null) => { restore(); document.execCommand(cmd, false, 
 const top = document.getElementById("mf-top");
 top.addEventListener("mousedown", (e) => { if (e.target.closest("button")) e.preventDefault(); });
 top.querySelectorAll("[data-cmd]").forEach((b) => (b.onclick = () => exec(b.dataset.cmd)));
+document.querySelector('[data-cmd="undo"]').onclick = () => histStep(-1);
+document.querySelector('[data-cmd="redo"]').onclick = () => histStep(1);
+updateHistButtons();
 document.getElementById("mf-size").onchange = (e) => { if (e.target.value) exec("fontSize", e.target.value); e.target.value = ""; };
 document.getElementById("mf-color").oninput = (e) => exec("foreColor", e.target.value);
 
@@ -741,6 +782,10 @@ document.addEventListener("pointerup", () => eEnd(true));
 document.addEventListener("pointercancel", () => eEnd(false));
 document.addEventListener("keydown", (e) => { if (e.key === "Escape" && eDrag) eEnd(false); });
 
+zone.addEventListener("beforeinput", (e) => {
+  if (e.inputType === "historyUndo") { e.preventDefault(); histStep(-1); }
+  else if (e.inputType === "historyRedo") { e.preventDefault(); histStep(1); }
+});
 zone.addEventListener("input", markDirty);
 // Formularen vises som reference og må aldrig sende eller navigere under redigering.
 zone.addEventListener("submit", event => event.preventDefault(), true);
@@ -760,6 +805,11 @@ zone.addEventListener("paste", (e) => {
 
 document.addEventListener("keydown", (e) => {
   if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s") { e.preventDefault(); save(); }
+  if ((e.ctrlKey || e.metaKey) && !e.altKey && canEdit && !e.target.closest("#mf-meta")) {
+    const k = e.key.toLowerCase();
+    if (k === "z" && !e.shiftKey) { e.preventDefault(); histStep(-1); }
+    else if (k === "y" || (k === "z" && e.shiftKey)) { e.preventDefault(); histStep(1); }
+  }
 });
 window.addEventListener("beforeunload", (e) => { if (dirty) { e.preventDefault(); e.returnValue = ""; } });
 </script>
