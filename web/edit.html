@@ -45,8 +45,18 @@ function loginView() {
     <label>Din e-mail</label>
     <input id="em" type="email" autocomplete="email">
     <label>Adgangskode (hvis du har en)</label>
-    <input id="pw" type="password" autocomplete="current-password">
+    <div style="position:relative"><input id="pw" type="password" autocomplete="current-password" style="padding-right:48px">
+      <button type="button" id="eye" aria-label="Vis adgangskode" aria-pressed="false" title="Vis/skjul adgangskode" style="position:absolute;right:2px;top:2px;bottom:2px;width:44px;padding:0;background:transparent;border:0;font-size:20px;cursor:pointer">👁</button></div>
     <p class="row"><button id="gopw">Log ind</button><button class="sec" id="go">Send link i stedet</button></p><p id="msg" class="mut"></p></div>`;
+  const eye = document.getElementById("eye"), pw = document.getElementById("pw");
+  eye.onclick = () => {
+    const show = pw.type === "password";
+    pw.type = show ? "text" : "password";
+    eye.textContent = show ? "🙈" : "👁";
+    eye.setAttribute("aria-pressed", show ? "true" : "false");
+    eye.setAttribute("aria-label", show ? "Skjul adgangskode" : "Vis adgangskode");
+  };
+  pw.addEventListener("keydown", (e) => { if (e.key === "Enter") document.getElementById("gopw").click(); });
   document.getElementById("gopw").onclick = async () => {
     const { error } = await db.auth.signInWithPassword({ email: document.getElementById("em").value, password: document.getElementById("pw").value });
     if (error) msg("Fejl: " + error.message, "err"); else start();
