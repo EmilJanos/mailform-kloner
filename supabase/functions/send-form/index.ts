@@ -47,11 +47,18 @@ Deno.serve(async (req) => {
         text: `Fra: ${email}\n\n${message}`,
       }),
     });
-    return json({ ok: true, mailed: r.ok });
-    } catch {
+    if (!r.ok) {
+      const detail = (await r.text()).slice(0, 500);
+      console.error("Resend afviste mailen", r.status, detail);
+      return json({ ok: true, mailed: false, mail_status: r.status, mail_error: detail });
+    }
+    return json({ ok: true, mailed: true });
+    } catch (e) {
+      console.error("Resend kunne ikke kaldes", String(e));
       // Beskeden er allerede gemt. Undgå at bede brugeren sende den igen.
       return json({ ok: true, mailed: false });
     }
   }
-  return json({ ok: true, mailed: false });
+  console.warn("Ingen mail sendt: mangler RESEND_API_KEY eller form_to_email", { key: !!key, to: !!st?.form_to_email });
+  return json({ ok: true, mailed: false, mail_error: !key ? "RESEND_API_KEY mangler" : "form_to_email mangler" });
 });
