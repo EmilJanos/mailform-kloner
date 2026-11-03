@@ -17,7 +17,10 @@
 /* Editorens egne knapper. Alt har mf- foran, så sidens stil ikke rammer det. */
 .mf-ui, .mf-ui * { box-sizing: border-box; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; letter-spacing: 0; text-transform: none; line-height: 1.3; }
 .mf-top { position: sticky; top: 0; z-index: 1000; background: #15161c; border-bottom: 1px solid #3a3c48; padding: 8px 12px; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; color: #eceef6; font-size: 14px; }
-.mf-top .mf-sep { width: 1px; height: 24px; background: #3a3c48; margin: 0 4px; }
+.mf-top { flex-direction: column; align-items: stretch; gap: 8px; }
+.mf-ui.mf-top select { width: 92px; min-width: 0; padding: 0 6px; }
+.mf-trow { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+.mf-top .mf-sep { width: 1px; height: 24px; background: #3a3c48; margin: 0 2px; }
 .mf-ui button, .mf-ui select, .mf-ui input[type=text] { all: unset; box-sizing: border-box; cursor: pointer; height: 32px; min-width: 32px; padding: 0 9px; border: 1px solid #3a3c48; border-radius: 6px; background: #262730; color: #eceef6; font-size: 14px; display: inline-flex; align-items: center; justify-content: center; gap: 5px; }
 .mf-ui input[type=text] { cursor: text; min-width: 160px; }
 .mf-ui button:hover, .mf-ui select:hover { background: #31333e; }
@@ -75,8 +78,25 @@ body.mf-is-dragging, body.mf-is-dragging * { cursor: grabbing !important; user-s
 </head>
 <body class="no-touch mf-edit">
 <div class="mf-ui mf-top" id="mf-top">
+  <div class="mf-trow">
   <button id="mf-back" title="Tilbage til mine sider">← Tilbage</button>
   <span class="mf-sep"></span>
+  <button data-cmd="undo" title="Fortryd (Ctrl+Z)">↶</button>
+  <button data-cmd="redo" title="Gentag (Ctrl+Y)">↷</button>
+  <span class="mf-sep"></span>
+  <button id="mf-upload" title="Upload et billede – det lægges øverst, og du trækker det på plads">🖼 Upload billede</button>
+  <button id="mf-img" title="Indsæt billede fra en adresse">Billede fra link</button>
+  <input type="file" id="mf-file" accept="image/jpeg,image/png,image/webp,image/gif" hidden>
+  <button id="mf-vupload" title="Upload en video (højst 50 MB) – lægges øverst, og du trækker den på plads">🎬 Upload video</button>
+  <button id="mf-vlink" title="Indsæt YouTube-video eller videoadresse">Video fra link</button>
+  <input type="file" id="mf-vfile" accept="video/mp4,video/webm,video/quicktime" hidden>
+  <span class="mf-sep"></span>
+  <button id="mf-meta-toggle" title="Titel, formular-overskrift og udgivelse">⚙ Indstillinger</button>
+  <button id="mf-view" title="Åbn den rigtige side i en ny fane">Se siden</button>
+  <button class="mf-primary" id="mf-save" title="Gem (Ctrl+S)">Gem</button>
+  <span class="mf-status" id="mf-status" role="status">Henter…</span>
+  </div>
+  <div class="mf-trow">
   <button data-cmd="bold" title="Fed (Ctrl+B)"><b>F</b></button>
   <button data-cmd="italic" title="Kursiv (Ctrl+I)"><i>K</i></button>
   <button data-cmd="underline" title="Understreg (Ctrl+U)"><u>U</u></button>
@@ -127,19 +147,7 @@ body.mf-is-dragging, body.mf-is-dragging * { cursor: grabbing !important; user-s
   <span class="mf-sep"></span>
   <button id="mf-link" title="Lav markeret tekst til et link">🔗 Link</button>
   <button data-cmd="unlink" title="Fjern link">Fjern link</button>
-  <button id="mf-upload" title="Upload et billede – det lægges øverst, og du trækker det på plads">🖼 Upload billede</button>
-  <button id="mf-img" title="Indsæt billede fra en adresse">Billede fra link</button>
-  <input type="file" id="mf-file" accept="image/jpeg,image/png,image/webp,image/gif" hidden>
-  <button id="mf-vupload" title="Upload en video (højst 50 MB) – lægges øverst, og du trækker den på plads">🎬 Upload video</button>
-  <button id="mf-vlink" title="Indsæt YouTube-video eller videoadresse">Video fra link</button>
-  <input type="file" id="mf-vfile" accept="video/mp4,video/webm,video/quicktime" hidden>
-  <span class="mf-sep"></span>
-  <button data-cmd="undo" title="Fortryd (Ctrl+Z)">↶</button>
-  <button data-cmd="redo" title="Gentag (Ctrl+Y)">↷</button>
-  <button id="mf-meta-toggle" title="Titel, formular-overskrift og udgivelse">⚙ Indstillinger</button>
-  <button id="mf-view" title="Åbn den rigtige side i en ny fane">Se siden</button>
-  <button class="mf-primary" id="mf-save" title="Gem (Ctrl+S)">Gem</button>
-  <span class="mf-status" id="mf-status" role="status">Henter…</span>
+  </div>
   <div class="mf-meta" id="mf-meta">
     <label>Titel <input type="text" id="mf-title"></label>
     <label>Overskrift over formular <input type="text" id="mf-legend"></label>
