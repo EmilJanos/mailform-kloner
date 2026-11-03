@@ -30,7 +30,7 @@ Kopier af fire sider fra mailform.dk, som Ole kan redigere selv i en visuel edit
 - **Visning og editor:** statiske filer i mappen `web/` (`index.html` viser siden, `edit.html` er login og sideliste, `visual.html` er den visuelle editor). `web/vercel.json` har omskrivning, så `/slug` virker.
 - **Database og login:** Supabase. Tabeller: `pages` (`slug`, `title`, `legend`, `sections` som json, `owner_id`, `published`), `page_settings` (`form_to_email`), `submissions` (modtagne beskeder). Row Level Security er slået til. Migrationer ligger i `supabase/migrations/` (`0001_init.sql`, `0002_media.sql`).
 - **Filer:** to Storage-buckets, `images` (5 MB) og `videos` (50 MB), med en mappe pr. bruger.
-- **Formular:** Edge Function `send-form` (`supabase/functions/send-form/index.ts`). Den gemmer beskeden, og sender mail via Resend, hvis `RESEND_API_KEY` og `form_to_email` er sat. Felter: email (påkrævet), telefon (valgfri), besked.
+- **Formular:** Edge Function `send-form` (`supabase/functions/send-form/index.ts`). Den gemmer beskeden, og sender mail via Resend, hvis `RESEND_API_KEY` og `form_to_email` er sat. Felter: email (påkrævet), telefon (valgfri), besked. Spærring: højst 3 beskeder pr. afsender på 10 minutter og 30 pr. side i timen (svarer 429). Mailudbyderens fejl sendes aldrig til den besøgende, kun til function-loggen.
 - **Nuværende ejer af alt:** Emil. Supabase-projektet hedder "Kopiere hjemmesider" (ref `ywiibwltvbdpjiubhhbh`). Vercel-projektet hedder `mailform-kloner` (root directory `web`).
 - **Startdata til siderne:** `seed/*.sql` og `seed/*.json`.
 
@@ -77,7 +77,7 @@ on conflict (page_id) do update set form_to_email = excluded.form_to_email;
 ```
 
 ### 4. Login-mails (valgfrit, men anbefalet)
-Supabases egen mailtjeneste har lav grænse og giver "mail limit exceeded". Sæt Resend ind som SMTP i Supabase under Authentication → SMTP Settings (host `smtp.resend.com`, port `465`, brugernavn `resend`, adgangskode = Resend-nøglen, afsender `noreply@oleamstrup.dk`). Alternativt bruger Ole adgangskode-login, som editoren også understøtter.
+Supabases egen mailtjeneste har lav grænse og giver "mail limit exceeded". Sæt Resend ind som SMTP i Supabase under Authentication → SMTP Settings (host `smtp.resend.com`, port `465`, brugernavn `resend`, adgangskode = Resend-nøglen, afsender `noreply@oleamstrup.dk`). Uden eget domæne i Resend kan der kun sendes til kontoens egen mailadresse, så dette trin giver først mening, når Oles domæne er verificeret (trin 3). Indtil da bruges adgangskode-login, som editoren understøtter. Login-siden har et øje, der viser/skjuler adgangskoden.
 
 ### 5. Oles login og ejerskab
 1. Opret Oles bruger i Supabase (Authentication → Users → Add user, med adgangskode) eller lad ham logge ind på `/edit.html` med mailadressen.
@@ -100,6 +100,20 @@ update pages set owner_id = (select id from auth.users where email = 'OLES-MAIL'
 - [ ] Ole kan logge ind, redigere, gemme og uploade billede og video
 - [ ] Beskeden er også gemt i tabellen `submissions`
 - [ ] Emil har ikke længere adgang til Oles konti, og Ole har fået nøglerne han skal bruge
+
+## Sikkerhed (gennemgået 3. november 2026)
+- Row Level Security er slået til på alle tabeller. Sider kan læses offentligt, når de er udgivet. Beskeder og modtageradresse kan kun læses af sidens ejer.
+- Storage: brugere kan kun lægge, ændre, slette og se filer i deres egen mappe (`<bruger-id>/…`). Offentlige fil-adresser virker for alle, fordi bucketsene er offentlige.
+- En sikkerhedsgennemgang og SQL-rettelser (strammere tabelrettigheder og Storage-regler, indeks) er lavet og skal være kørt, før overdragelsen. Tjek i Supabase under Advisors, at der ikke er kritiske fund.
+- Kontrol af lækkede adgangskoder i Supabase Auth kræver en betalt plan. Slå den til, hvis Ole opgraderer.
+- Gem aldrig nøgler i repoet.
+
+## Editoren: godt at vide
+- Klik på et billede eller en video for at ændre størrelsen (25/50/75/100 %, Original, eller træk i hjørnet).
+- Video skal være **MP4 (H.264)** eller WebM, højst 50 MB. `.3gp` og `.mov` virker ikke i alle browsere. Større videoer lægges på YouTube og bruges med "Video fra link".
+- Billeder gøres automatisk mindre ved upload (højst 5 MB).
+- Fejl ved upload vises i en rød boks nederst på skærmen.
+- Fortryd/gentag virker på hele siden (tekst, flytninger, upload, sletning).
 
 ## Kendte forhold
 - Slug for Missinglink er `missing`. Visningssiden mapper `/missinglink` til den.
