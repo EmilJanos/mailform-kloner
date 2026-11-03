@@ -101,7 +101,11 @@ const say = (t, c = "") => { statusEl.textContent = t; statusEl.className = "mf-
 const slug = (new URLSearchParams(location.search).get("p") || "").toLowerCase();
 let page = null;
 let dirty = false;
-const markDirty = () => { if (!dirty) { dirty = true; say("Ikke gemt"); } };
+let currentUserId = null;
+let canEdit = false;
+let saving = false;
+let editVersion = 0;
+const markDirty = () => { editVersion++; if (!dirty) { dirty = true; say("Ikke gemt"); } };
 
 // Ting der ikke må redigeres som tekst (formularer, galleri, video) låses og får en lille mærkat.
 const LOCKS = [
@@ -166,17 +170,26 @@ function collect() {
 }
 
 async function save() {
-  if (!page) return;
+  if (!page || saving) return;
+  if (!canEdit) return say("Du ejer ikke siden – ændringer er ikke gemt", "err");
+  saving = true;
+  const version = editVersion;
+  document.getElementById("mf-save").disabled = true;
   say("Gemmer…");
-  const { error } = await db.from("pages").update({
+  try {
+  const { data: saved, error } = await db.from("pages").update({
     sections: collect(),
     title: document.getElementById("mf-title").value,
     legend: document.getElementById("mf-legend").value,
     published: document.getElementById("mf-pub").checked,
-  }).eq("id", page.id);
+  }).eq("id", page.id).eq("owner_id", currentUserId).eq("updated_at", page.updated_at).select("id,updated_at").maybeSingle();
   if (error) return say("Fejl: " + error.message, "err");
-  dirty = false;
-  say("Gemt " + new Date().toLocaleTimeString("da-DK", { hour: "2-digit", minute: "2-digit" }), "ok");
+  if (!saved) return say("Ikke gemt: Siden er ændret et andet sted, eller din adgang er ændret. Genindlæs siden.", "err");
+  page.updated_at = saved.updated_at;
+  dirty = editVersion !== version;
+  say(dirty ? "Gemt – der er nyere ændringer, som ikke er gemt" : "Gemt " + new Date().toLocaleTimeString("da-DK", { hour: "2-digit", minute: "2-digit" }), dirty ? "" : "ok");
+  } catch { say("Forbindelsen blev afbrudt. Ændringerne er ikke bekræftet gemt.", "err"); }
+  finally { saving = false; document.getElementById("mf-save").disabled = !canEdit; }
 }
 
 // --- Start ---
@@ -184,7 +197,8 @@ const { data: { session } } = await db.auth.getSession();
 if (!session) { location.href = "edit.html"; }
 else if (!slug) { say("Ingen side valgt", "err"); }
 else {
-  const { data, error } = await db.from("pages").select("id,slug,title,legend,sections,published,owner_id").eq("slug", slug).maybeSingle();
+  currentUserId = session.user.id;
+  const { data, error } = await db.from("pages").select("id,slug,title,legend,sections,published,owner_id,updated_at").eq("slug", slug).maybeSingle();
   if (error || !data) say("Siden findes ikke", "err");
   else {
     page = data;
@@ -194,7 +208,12 @@ else {
     document.getElementById("mf-pub").checked = !!page.published;
     zone.replaceChildren(...page.sections.map(sectionEl));
     zone.querySelectorAll("legend").forEach((l) => (l.textContent = page.legend));
-    if (page.owner_id !== session.user.id) say("Du ejer ikke siden – du kan ikke gemme", "err");
+    canEdit = page.owner_id === session.user.id;
+    if (!canEdit) {
+      zone.querySelectorAll('[contenteditable]').forEach(el => el.setAttribute('contenteditable','false'));
+      document.querySelectorAll('.mf-bar button, #mf-top button:not(#mf-back):not(#mf-view), #mf-top input, #mf-top select, #mf-add-end').forEach(el => el.disabled = true);
+      say("Du ejer ikke siden – vises uden mulighed for at redigere", "err");
+    }
     else say("Klar. Klik på en tekst for at rette den.");
   }
 }
@@ -266,6 +285,8 @@ zone.addEventListener("click", (e) => {
   if (e.target.closest("a")) e.preventDefault();
 });
 zone.addEventListener("input", markDirty);
+// Formularen vises som reference og må aldrig sende eller navigere under redigering.
+zone.addEventListener("submit", event => event.preventDefault(), true);
 
 // Indsat tekst renses, så der ikke følger skjult formatering eller scripts med.
 zone.addEventListener("paste", (e) => {

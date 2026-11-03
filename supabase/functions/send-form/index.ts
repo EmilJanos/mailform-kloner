@@ -3,7 +3,8 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "content-type, authorization, apikey",
+  "Access-Control-Allow-Headers": "content-type, authorization, apikey, x-client-info",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 const json = (b: unknown, s = 200) =>
   new Response(JSON.stringify(b), { status: s, headers: { ...cors, "content-type": "application/json" } });
@@ -14,6 +15,7 @@ Deno.serve(async (req) => {
 
   let body: { slug?: string; email?: string; message?: string; website?: string };
   try { body = await req.json(); } catch { return json({ error: "bad json" }, 400); }
+  if (!body || typeof body !== "object" || Array.isArray(body)) return json({ error: "bad json" }, 400);
   if (body.website) return json({ ok: true }); // honeypot mod spam
 
   const slug = String(body.slug ?? "");
@@ -33,6 +35,7 @@ Deno.serve(async (req) => {
   const { data: st } = await db.from("page_settings").select("form_to_email").eq("page_id", page.id).maybeSingle();
   const key = Deno.env.get("RESEND_API_KEY");
   if (key && st?.form_to_email) {
+    try {
     const r = await fetch("https://api.resend.com/emails", {
       method: "POST",
       headers: { Authorization: `Bearer ${key}`, "content-type": "application/json" },
@@ -44,7 +47,11 @@ Deno.serve(async (req) => {
         text: `Fra: ${email}\n\n${message}`,
       }),
     });
-    if (!r.ok) return json({ ok: true, mailed: false }); // beskeden er gemt alligevel
+    return json({ ok: true, mailed: r.ok });
+    } catch {
+      // Beskeden er allerede gemt. Undgå at bede brugeren sende den igen.
+      return json({ ok: true, mailed: false });
+    }
   }
-  return json({ ok: true });
+  return json({ ok: true, mailed: false });
 });
