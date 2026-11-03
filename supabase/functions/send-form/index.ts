@@ -61,7 +61,7 @@ Deno.serve(async (req) => {
     if (!r.ok) {
       const detail = (await r.text()).slice(0, 500);
       console.error("Resend afviste mailen", r.status, detail);
-      return json({ ok: true, mailed: false, mail_status: r.status, mail_error: detail });
+      return json({ ok: true, mailed: false });
     }
     return json({ ok: true, mailed: true });
     } catch (e) {
@@ -71,5 +71,5 @@ Deno.serve(async (req) => {
     }
   }
   console.warn("Ingen mail sendt: mangler RESEND_API_KEY eller form_to_email", { key: !!key, to: !!st?.form_to_email });
-  return json({ ok: true, mailed: false, mail_error: !key ? "RESEND_API_KEY mangler" : "form_to_email mangler" });
+  return json({ ok: true, mailed: false });
 });
