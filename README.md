@@ -22,3 +22,4 @@ Sider i mailform-stil (ole, teamjk, nye klonsider). Indhold ligger i Supabase, s
 
 ## Nyt indhold fra andre kilder
 `node tools/import.js <fil.html> <adresse> "<titel>"` laver `seed/<adresse>.sql`. Tjek filen igennem før den lægges i databasen.
+- Hosting: Vercel-projekt `mailform-kloner` bygger `web/` ved hvert push til main.
