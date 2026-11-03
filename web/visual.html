@@ -81,10 +81,10 @@ body.mf-is-dragging, body.mf-is-dragging * { cursor: grabbing !important; user-s
   <span class="mf-sep"></span>
   <button id="mf-link" title="Lav markeret tekst til et link">🔗 Link</button>
   <button data-cmd="unlink" title="Fjern link">Fjern link</button>
-  <button id="mf-upload" title="Upload et billede fra computer eller telefon">🖼 Upload billede</button>
+  <button id="mf-upload" title="Upload et billede – det lægges øverst, og du trækker det på plads">🖼 Upload billede</button>
   <button id="mf-img" title="Indsæt billede fra en adresse">Billede fra link</button>
   <input type="file" id="mf-file" accept="image/jpeg,image/png,image/webp,image/gif" hidden>
-  <button id="mf-vupload" title="Upload en video fra computer eller telefon (højst 50 MB)">🎬 Upload video</button>
+  <button id="mf-vupload" title="Upload en video (højst 50 MB) – lægges øverst, og du trækker den på plads">🎬 Upload video</button>
   <button id="mf-vlink" title="Indsæt YouTube-video eller videoadresse">Video fra link</button>
   <input type="file" id="mf-vfile" accept="video/mp4,video/webm,video/quicktime" hidden>
   <span class="mf-sep"></span>
@@ -178,6 +178,15 @@ function sectionEl(s) {
   return wrap;
 }
 
+// Ny sektion øverst på siden (billede/video uden at man skal vælge sted først). Træk den derhen, hvor den skal stå.
+function addTopSection(inner) {
+  const sec = sectionEl({ id: "s" + Date.now(), kind: "html",
+    html: `<div class="widget widget--zone-widget"><div class="bk-content-text content widget__content"><span class="content-block"><div style="text-align: center;">${inner}</div></span></div></div>` });
+  zone.prepend(sec);
+  scrollTo({ top: 0, behavior: "smooth" });
+  markDirty();
+  return sec;
+}
 function newTextSection() {
   return sectionEl({
     id: "s" + Date.now(),
@@ -322,12 +331,10 @@ document.getElementById("mf-link").onclick = () => {
   if (a && /^https?:/i.test(a.getAttribute("href") || "")) a.setAttribute("target", "_blank");
 };
 document.getElementById("mf-img").onclick = () => {
-  if (!savedRange) return say("Klik først der, hvor billedet skal stå", "err");
-  const keep = savedRange.cloneRange();
   const url = prompt("Adresse på billedet (https://…)", "https://");
   if (!url || !/^https:\/\//i.test(url.trim())) return;
-  savedRange = keep;
-  exec("insertImage", url.trim());
+  addTopSection(`<img src="${escAttr(url.trim())}" alt="">`);
+  say("Billede lagt øverst – træk det derhen, hvor det skal stå, og husk at gemme");
 };
 
 // --- Billedupload (Supabase Storage, mappe pr. bruger) ---
@@ -362,22 +369,19 @@ async function uploadImage(file, range) {
     const { error } = await db.storage.from("images").upload(path, blob, { contentType: type, cacheControl: "31536000", upsert: false });
     if (error) return say("Upload fejlede: " + error.message, "err");
     const url = db.storage.from("images").getPublicUrl(path).data.publicUrl;
-    if (range) savedRange = range;
-    exec("insertImage", url);
+    if (range) { savedRange = range; exec("insertImage", url); }
+    else addTopSection(`<img src="${escAttr(url)}" alt="">`);
     const alt = file.name.replace(/\.[^.]+$/, "").replace(/[-_]+/g, " ").slice(0, 80);
     zone.querySelectorAll(`img[src="${CSS.escape(url)}"]`).forEach((im) => im.setAttribute("alt", alt));
-    say("Billede indsat – husk at gemme");
+    say(range ? "Billede indsat – husk at gemme" : "Billede lagt øverst – træk det derhen, hvor det skal stå, og husk at gemme");
   } catch (err) { say("Upload fejlede. Prøv igen.", "err"); }
 }
 const fileInput = document.getElementById("mf-file");
-document.getElementById("mf-upload").onclick = () => {
-  if (!savedRange) return say("Klik først der, hvor billedet skal stå", "err");
-  fileInput.click();
-};
+document.getElementById("mf-upload").onclick = () => fileInput.click();
 fileInput.onchange = () => {
   const f = fileInput.files[0];
   fileInput.value = "";
-  if (f) uploadImage(f, savedRange && savedRange.cloneRange());
+  if (f) uploadImage(f, null);
 };
 zone.addEventListener("dragover", (e) => { if ([...e.dataTransfer.items].some((i) => i.kind === "file")) e.preventDefault(); });
 zone.addEventListener("drop", (e) => {
@@ -393,7 +397,8 @@ const VID_TYPES = ["video/mp4", "video/webm", "video/quicktime"];
 const VID_MAX = 52428800; // 50 MB (grænsen på Supabase gratis-plan)
 const escAttr = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 function insertBlock(html, range) {
-  if (range) savedRange = range;
+  if (!range) { addTopSection(html); return; }
+  savedRange = range;
   exec("insertHTML", html + "<div><br></div>");
   zone.querySelectorAll(".mf-body").forEach(lock);
 }
@@ -423,22 +428,18 @@ async function uploadVideo(file, range) {
     const { error } = await db.storage.from("videos").upload(path, file, { contentType: file.type, cacheControl: "31536000", upsert: false });
     if (error) return say("Upload fejlede: " + error.message, "err");
     insertBlock(videoTag(db.storage.from("videos").getPublicUrl(path).data.publicUrl), range);
-    say("Video indsat – husk at gemme");
+    say(range ? "Video indsat – husk at gemme" : "Video lagt øverst – træk den derhen, hvor den skal stå, og husk at gemme");
   } catch { say("Upload fejlede. Prøv igen.", "err"); }
 }
 const vfile = document.getElementById("mf-vfile");
-document.getElementById("mf-vupload").onclick = () => {
-  if (!savedRange) return say("Klik først der, hvor videoen skal stå", "err");
-  vfile.click();
-};
+document.getElementById("mf-vupload").onclick = () => vfile.click();
 vfile.onchange = () => {
   const f = vfile.files[0];
   vfile.value = "";
-  if (f) uploadVideo(f, savedRange && savedRange.cloneRange());
+  if (f) uploadVideo(f, null);
 };
 document.getElementById("mf-vlink").onclick = () => {
-  if (!savedRange) return say("Klik først der, hvor videoen skal stå", "err");
-  const keep = savedRange.cloneRange();
+  const keep = null;
   const u = (prompt("Indsæt YouTube-link eller adresse på en videofil (.mp4/.webm)", "https://") || "").trim();
   if (!/^https:\/\//i.test(u)) return;
   const id = youtubeId(u);
@@ -447,7 +448,7 @@ document.getElementById("mf-vlink").onclick = () => {
   } else if (/\.(mp4|webm|mov)(\?|#|$)/i.test(u)) {
     insertBlock(videoTag(u), keep);
   } else return say("Det ligner hverken et YouTube-link eller en videofil", "err");
-  say("Video indsat – husk at gemme");
+  say("Video lagt øverst – træk den derhen, hvor den skal stå, og husk at gemme");
 };
 
 document.getElementById("mf-meta-toggle").onclick =() => document.getElementById("mf-meta").classList.toggle("open");
