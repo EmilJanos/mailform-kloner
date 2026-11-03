@@ -31,6 +31,15 @@ Deno.serve(async (req) => {
   const { data: page } = await db.from("pages").select("id,title,published").eq("slug", slug).maybeSingle();
   if (!page || !page.published) return json({ error: "ukendt side" }, 404);
 
+  // Spærring mod misbrug: højst 3 beskeder pr. afsender på 10 minutter og 30 pr. side i timen.
+  const ago = (ms: number) => new Date(Date.now() - ms).toISOString();
+  const { count: fromSender } = await db.from("submissions").select("id", { count: "exact", head: true })
+    .eq("page_id", page.id).eq("email", email).gte("created_at", ago(10 * 60 * 1000));
+  if ((fromSender ?? 0) >= 3) return json({ error: "for mange" }, 429);
+  const { count: onPage } = await db.from("submissions").select("id", { count: "exact", head: true })
+    .eq("page_id", page.id).gte("created_at", ago(60 * 60 * 1000));
+  if ((onPage ?? 0) >= 30) return json({ error: "for mange" }, 429);
+
   const { error: saveError } = await db.from("submissions").insert({ page_id: page.id, email, message: phone ? `${message}\n\nTelefon: ${phone}` : message });
   if (saveError) return json({ error: "Kunne ikke gemme beskeden" }, 500);
 

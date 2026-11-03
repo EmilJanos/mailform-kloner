@@ -82,6 +82,7 @@ else {
       status.textContent='Sender…';
       try{
         const {data,error}=await db.functions.invoke('send-form',{body:{slug:page.slug,email:form.querySelector('input[type=email]')?.value,phone:form.querySelector('input[type=tel]')?.value||'',message:form.querySelector('textarea')?.value,website:trap.value}});
+        if(error?.context?.status===429){status.textContent='Der er sendt mange beskeder lige nu. Prøv igen om lidt.';return;}
         if(error||!data?.ok)throw Error('send');
         status.textContent=data.mailed===true?'Tak! Din besked er sendt.':'Tak! Din besked er gemt. Mailafsendelse er ikke bekræftet.';form.reset();
       }catch{status.textContent='Beskeden kunne ikke gemmes. Tjek mailadressen og prøv igen.';}
