@@ -56,6 +56,13 @@
 .mf-edit .mf-body img, .mf-edit .mf-video { cursor: grab; -webkit-user-drag: none; }
 .mf-edit .mf-body img { max-width: 100%; }
 .mf-edit iframe, .mf-edit video { pointer-events: none; }
+.mf-egrip { position: fixed; z-index: 1500; width: 18px; height: 20px; display: none; align-items: center; justify-content: center; border-radius: 4px; background: #5061de; color: #fff; cursor: grab; touch-action: none; font: 13px/1 system-ui, sans-serif; user-select: none; box-shadow: 0 1px 4px rgba(0,0,0,0.4); }
+.mf-egrip:hover { background: #3d4ec9; }
+.mf-el-dragging { opacity: 0.35; outline: 2px dashed #8d9bff; }
+.mf-grip { position: absolute; left: -34px; top: 0; bottom: 0; width: 10px; display: none; align-items: center; justify-content: center; border-radius: 5px; background: rgba(141,155,255,0.18); color: #b9c1ff; cursor: grab; touch-action: none; font: 15px/1 system-ui, sans-serif; z-index: 15; user-select: none; }
+.mf-grip:hover { background: rgba(141,155,255,0.4); }
+.mf-sec:hover > .mf-grip, .mf-sec:focus-within > .mf-grip { display: flex; }
+@media (hover: none) { .mf-grip { display: none !important; } }
 .mf-sec.mf-dragging { opacity: 0.35; }
 body.mf-is-dragging, body.mf-is-dragging * { cursor: grabbing !important; user-select: none !important; }
 .mf-ind { position: fixed; z-index: 2000; background: #8d9bff; border-radius: 3px; pointer-events: none; display: none; box-shadow: 0 0 0 2px rgba(141,155,255,0.3); }
@@ -163,7 +170,7 @@ function sectionEl(s) {
   wrap.dataset.id = s.id;
   if (s.w) wrap.dataset.w = String(s.w);
   originals.set(s.id, s);
-  wrap.innerHTML = `<div class="mf-ui mf-bar" contenteditable="false">
+  wrap.innerHTML = `<div class="mf-grip" contenteditable="false" title="Træk hele boksen – slip til venstre/højre for kolonner"></div><div class="mf-ui mf-bar" contenteditable="false">
       <button data-act="drag" class="mf-drag" title="Træk for at flytte – slip til venstre/højre for kolonner">⠿ Træk</button>
       <button data-act="up" title="Flyt op">↑</button>
       <button data-act="down" title="Flyt ned">↓</button>
@@ -554,12 +561,11 @@ function endDrag(apply) {
 zone.addEventListener("dragstart", (e) => { if (e.target.closest && e.target.closest("img, .mf-video")) e.preventDefault(); });
 zone.addEventListener("pointerdown", (e) => {
   // Fat i knappen, eller direkte i et billede/en video (mus og pen; på touch bruges knappen)
-  const h = e.target.closest(".mf-drag");
-  const media = !h && e.pointerType !== "touch" && e.target.closest("img, .mf-video, video, iframe");
-  if (!(h || media) || !canEdit || e.button > 0) return;
+  const h = e.target.closest(".mf-drag, .mf-grip");
+  if (!h || !canEdit || e.button > 0) return;
   e.preventDefault();
   if (h) h.setPointerCapture(e.pointerId);
-  drag = { sec: (h || media).closest(".mf-sec"), x: e.clientX, y: e.clientY, info: null, started: false, sx: e.clientX, sy: e.clientY };
+  drag = { sec: h.closest(".mf-sec"), x: e.clientX, y: e.clientY, info: null, started: false, sx: e.clientX, sy: e.clientY };
 });
 document.addEventListener("pointermove", (e) => {
   if (!drag) return;
@@ -578,6 +584,153 @@ document.addEventListener("pointermove", (e) => {
 document.addEventListener("pointerup", () => endDrag(drag && drag.started));
 document.addEventListener("pointercancel", () => endDrag(false));
 document.addEventListener("keydown", (e) => { if (e.key === "Escape" && drag) endDrag(false); });
+
+// --- Træk enkelte elementer (linjer, billeder, video, formular, galleri) ---
+const STRUCT = /\b(widget|widget__content|bk-content-text|content|responsivecolumns|bk-responsivecolumns|bk-zone|column|columns-two-left|columns-two-right|zone-content)\b/;
+const BLOCK = /^(DIV|P|H1|H2|H3|H4|H5|H6|UL|OL|FIGURE|TABLE|BLOCKQUOTE|FORM|SECTION|CENTER)$/;
+function movableOf(node) {
+  if (!node || node.nodeType !== 1) node = node && node.parentElement;
+  const body = node && node.closest && node.closest(".mf-body");
+  if (!body) return null;
+  // Låste ting (formular, galleri, video) flyttes som én helhed
+  let lockTop = null;
+  for (let n = node; n && n !== body; n = n.parentElement) if (n.hasAttribute && n.hasAttribute("data-mf-lock")) lockTop = n;
+  if (lockTop) return lockTop;
+  for (let n = node; n && n !== body; n = n.parentElement) {
+    if (n.closest(".mf-ui, .mf-grip")) return null;
+    if (BLOCK.test(n.tagName) && !STRUCT.test(n.className || "")) return n;
+  }
+  return null;
+}
+const hasContent = (body) => body.textContent.trim() !== "" || !!body.querySelector("img, video, iframe, form, .gallery, .mf-video, hr");
+const egrip = Object.assign(document.createElement("div"), { className: "mf-egrip", title: "Tag fat og træk elementet", textContent: "⠿" });
+document.body.append(egrip);
+let egripFor = null;
+function placeEgrip(el) {
+  egripFor = el;
+  if (!el || !canEdit || drag || eDrag) { egrip.style.display = "none"; return; }
+  const r = el.getBoundingClientRect();
+  Object.assign(egrip.style, { display: "flex", left: Math.max(2, r.left - 22) + "px", top: r.top + Math.min(r.height, 28) / 2 - 10 + "px" });
+}
+zone.addEventListener("mousemove", (e) => { if (!eDrag && !drag && !e.target.closest(".mf-grip, .mf-bar")) placeEgrip(movableOf(e.target)); });
+egrip.addEventListener("mouseleave", (e) => { if (!zone.contains(e.relatedTarget)) placeEgrip(null); });
+zone.addEventListener("mouseleave", (e) => { if (e.relatedTarget !== egrip) placeEgrip(null); });
+addEventListener("scroll", () => { if (egripFor && !eDrag) placeEgrip(egripFor); }, { passive: true });
+// Touch: grebet følger markøren, når man trykker i en tekst
+document.addEventListener("selectionchange", () => { if (matchMedia("(hover: none)").matches && !eDrag) { const a = getSelection().anchorNode; placeEgrip(a && zone.contains(a) ? movableOf(a) : null); } });
+
+let eDrag = null; // { el, src, info, started, sx, sy }
+function eDropInfo(x, y) {
+  const under = document.elementFromPoint(x, y);
+  if (!under) return null;
+  const sec = under.closest && under.closest(".mf-sec");
+  if (!sec) {
+    const last = zone.lastElementChild;
+    if (last && y > last.getBoundingClientRect().bottom - 2) return { mode: "end", target: last };
+    return null;
+  }
+  const r = sec.getBoundingClientRect();
+  const fx = (x - r.left) / r.width;
+  if (fx < 0.1) return { mode: "col-left", target: sec };
+  if (fx > 0.9) return { mode: "col-right", target: sec };
+  const t = movableOf(under);
+  if (t && t !== eDrag.el && !eDrag.el.contains(t) && !t.contains(eDrag.el)) {
+    const tr = t.getBoundingClientRect();
+    return { mode: y < tr.top + tr.height / 2 ? "before" : "after", target: t };
+  }
+  if (t && (t === eDrag.el || eDrag.el.contains(t))) return { mode: "self" };
+  return { mode: "into", target: sec.querySelector(".mf-body") };
+}
+function eShow(info) {
+  if (!info || info.mode === "self") { ind.style.display = "none"; ghost.textContent = "Flytter element…"; return; }
+  let ok = true, box, vertical = false;
+  if (info.mode === "col-left" || info.mode === "col-right") {
+    const row = info.target.parentElement.classList.contains("mf-row") ? info.target.parentElement : null;
+    ok = !row || row.querySelectorAll(":scope > .mf-sec").length < MAX_COLS;
+    box = info.target.getBoundingClientRect(); vertical = true;
+  } else if (info.mode === "end") box = info.target.getBoundingClientRect();
+  else box = info.target.getBoundingClientRect();
+  info.ok = ok;
+  ind.className = "mf-ind" + (ok ? "" : " bad");
+  ind.style.display = "block";
+  if (vertical) Object.assign(ind.style, { left: (info.mode === "col-left" ? box.left - 6 : box.right + 2) + "px", top: box.top + "px", width: "4px", height: box.height + "px" });
+  else if (info.mode === "into") Object.assign(ind.style, { left: box.left + "px", top: box.bottom - 3 + "px", width: box.width + "px", height: "4px" });
+  else Object.assign(ind.style, { left: box.left + "px", top: (info.mode === "before" ? box.top - 4 : box.bottom + 1) + "px", width: box.width + "px", height: "3px" });
+  ghost.textContent = !ok ? "Højst 3 kolonner i en række" : ({ before: "Slip: over", after: "Slip: under", into: "Slip: nederst i boksen", end: "Slip: ny boks nederst", "col-left": "Slip: ny kolonne til venstre", "col-right": "Slip: ny kolonne til højre" })[info.mode];
+}
+function wrapInSection(el) {
+  const sec = sectionEl({ id: "s" + Date.now() + Math.random().toString(36).slice(2, 5), kind: "html",
+    html: '<div class="widget widget--zone-widget"><div class="bk-content-text content widget__content"><span class="content-block"><i data-mf-slot></i></span></div></div>' });
+  sec.querySelector("[data-mf-slot]").replaceWith(el);
+  return sec;
+}
+function eDoDrop(info) {
+  const el = eDrag.el, srcBody = eDrag.src;
+  if (info.mode === "before") info.target.before(el);
+  else if (info.mode === "after") info.target.after(el);
+  else if (info.mode === "into") (info.target.querySelector(".content-block") || info.target).append(el);
+  else if (info.mode === "end") zone.append(wrapInSection(el));
+  else {
+    const t = info.target, sec = wrapInSection(el);
+    let row = t.parentElement.classList.contains("mf-row") ? t.parentElement : null;
+    if (!row) { row = makeRow(); t.replaceWith(row); row.append(t); }
+    if (info.mode === "col-left") t.before(sec); else t.after(sec);
+  }
+  // Tom kilde-boks fjernes
+  if (srcBody && !hasContent(srcBody)) srcBody.closest(".mf-sec").remove();
+  normalize();
+  markDirty();
+}
+function eEnd(apply) {
+  if (!eDrag) return;
+  clearInterval(scrollTimer);
+  if (apply && eDrag.started && eDrag.info && eDrag.info.mode !== "self" && eDrag.info.ok !== false) eDoDrop(eDrag.info);
+  eDrag.el.classList.remove("mf-el-dragging");
+  if (!eDrag.el.getAttribute("class")) eDrag.el.removeAttribute("class");
+  document.body.classList.remove("mf-is-dragging");
+  ind.style.display = ghost.style.display = "none";
+  eDrag = null;
+  placeEgrip(null);
+}
+function eStart(el, e) {
+  eDrag = { el, src: el.closest(".mf-body"), info: null, started: false, sx: e.clientX, sy: e.clientY };
+}
+egrip.addEventListener("pointerdown", (e) => {
+  if (!egripFor || !canEdit || e.button > 0) return;
+  e.preventDefault();
+  egrip.setPointerCapture(e.pointerId);
+  eStart(egripFor, e);
+});
+zone.addEventListener("pointerdown", (e) => {
+  // Billeder og video kan tages direkte (mus/pen)
+  if (e.pointerType === "touch" || e.button > 0 || !canEdit || e.target.closest(".mf-grip, .mf-bar")) return;
+  const m = e.target.closest("img, .mf-video, video, iframe, .mf-lockbox");
+  if (!m) return;
+  const el = movableOf(m);
+  if (!el) return;
+  e.preventDefault();
+  eStart(el, e);
+}, true);
+document.addEventListener("pointermove", (e) => {
+  if (!eDrag) return;
+  if (!eDrag.started) {
+    if (Math.hypot(e.clientX - eDrag.sx, e.clientY - eDrag.sy) < 6) return;
+    eDrag.started = true;
+    eDrag.el.classList.add("mf-el-dragging");
+    document.body.classList.add("mf-is-dragging");
+    ghost.style.display = "block";
+    egrip.style.display = "none";
+  }
+  Object.assign(ghost.style, { left: e.clientX + 14 + "px", top: e.clientY + 14 + "px" });
+  eShow(eDrag.info = eDropInfo(e.clientX, e.clientY));
+  clearInterval(scrollTimer);
+  const edge = 70, topH = document.getElementById("mf-top").offsetHeight, y = e.clientY, x = e.clientX;
+  const dy = y < topH + edge ? -14 : y > innerHeight - edge ? 14 : 0;
+  if (dy) scrollTimer = setInterval(() => { scrollBy(0, dy); if (eDrag) eShow(eDrag.info = eDropInfo(x, y)); }, 16);
+});
+document.addEventListener("pointerup", () => eEnd(true));
+document.addEventListener("pointercancel", () => eEnd(false));
+document.addEventListener("keydown", (e) => { if (e.key === "Escape" && eDrag) eEnd(false); });
 
 zone.addEventListener("input", markDirty);
 // Formularen vises som reference og må aldrig sende eller navigere under redigering.
