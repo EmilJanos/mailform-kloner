@@ -35,7 +35,7 @@ Kopier af fire sider fra mailform.dk, som Ole kan redigere selv i en visuel edit
 - **Startdata til siderne:** `seed/*.sql` og `seed/*.json`.
 
 ## Målet
-Ole ejer GitHub-repoet, Vercel-projektet, Supabase-projektet og Resend-kontoen. Siderne ligger på hans eget domæne `oleamstrup.dk`. Beskeder fra formularen går til `mail@oleamstrup.dk`. Emil er ikke med i det daglige.
+Ole ejer GitHub-repoet, Vercel-projektet, Supabase-projektet og Resend-kontoen. Siderne ligger på hans eget domæne `oleamstrup.dk`. Beskeder fra formularen går til `mailform@oleamstrup.dk`. Emil er ikke med i det daglige.
 
 ## Trin for trin
 
@@ -72,7 +72,7 @@ Billeder og videoer i Storage følger ikke med i fallback og skal uploades igen.
 
 ```sql
 insert into page_settings (page_id, form_to_email)
-select id, 'mail@oleamstrup.dk' from pages where slug in ('ole', 'teamjk', 'vores', 'missing')
+select id, 'mailform@oleamstrup.dk' from pages where slug in ('ole', 'teamjk', 'vores', 'missing')
 on conflict (page_id) do update set form_to_email = excluded.form_to_email;
 ```
 
@@ -96,7 +96,7 @@ update pages set owner_id = (select id from auth.users where email = 'OLES-MAIL'
 
 ### 7. Tjek til sidst
 - [ ] Alle fire sider åbner uden login på det rigtige domæne
-- [ ] Formularen sender en testbesked med og uden telefonnummer, og mailen kommer frem hos `mail@oleamstrup.dk`
+- [ ] Formularen sender en testbesked med og uden telefonnummer, og mailen kommer frem hos `mailform@oleamstrup.dk`
 - [ ] Ole kan logge ind, redigere, gemme og uploade billede og video
 - [ ] Beskeden er også gemt i tabellen `submissions`
 - [ ] Emil har ikke længere adgang til Oles konti, og Ole har fået nøglerne han skal bruge
