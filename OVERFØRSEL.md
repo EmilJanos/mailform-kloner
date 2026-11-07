@@ -36,10 +36,9 @@ Ole har skriftligt givet lov til at kopiere indholdet og flytte siderne til sit 
 - `LÆS MIG.txt`: kort version af denne guide
 - Kun `ole` og `teamjk`: `send.php` (sender mail fra formularen) og `indstillinger.php` (mailkontoens oplysninger)
 
-**Der er ingen mapper med billeder og video i zip-filerne, og der skal ikke hentes noget.** Siden henter dem fra de samme steder som i dag:
+**Videoer hentes ikke.** De peger på Oles egne domæner (fx `debat.vorespolitikere.dk`), præcis som på de gamle sider. De skal bare blive liggende på samme adresser, også efter domænerne er flyttet til Netgiganten. Videoer fra YouTube er indlejret og virker bare.
 
-- **Videoer (.mp4)** peger på Oles egne domæner (fx `debat.vorespolitikere.dk`), præcis som på de gamle sider. De skal bare blive liggende på samme adresser, også efter domænerne er flyttet til Netgiganten. Videoer fra YouTube er indlejret og virker bare.
-- **Billeder** hentes direkte fra sidebyggerens server `files.builder.nu`, hvor de ligger i dag. De ligger *ikke* på Oles egen server. Lukkes kontoen hos sidebyggeren, kan billederne forsvinde. Se "Sikkerhedsnettet" for en simpel måde at tage en kopi.
+**Billeder skal med i zip-filen.** De ligger i dag hos sidebyggeren (`files.builder.nu`), ikke hos Ole, og forsvinder, hvis kontoen lukkes. Derfor henter Emil dem ned i mappen `billeder/`, mens de gamle sider stadig er online, og pakker en ny zip. Mappen `billeder/` skal ligge ved siden af `index.html`. Er mappen tom i en zip, skal trin 2 køres først.
 
 ---
 
@@ -50,15 +49,25 @@ Ole har skriftligt givet lov til at kopiere indholdet og flytte siderne til sit 
 - [ ] Alle fire zip-filer er gemt på computeren. Lav en kopi af dem på et USB-stik eller i en sky-mappe. Det er det første sikkerhedsnet.
 - [ ] Ole har login til Netgiganten og ved, hvilke adresser de fire sider skal have (se trin 6).
 - [ ] De gamle sider og DanDomain er stadig online og **må ikke lukkes endnu**.
+- [ ] Mappen `billeder/` er fyldt i alle fire zip-filer
 - [ ] Videofilerne ligger på de samme adresser, som siderne peger på. Ole har bekræftet, at han selv har dem liggende og flytter dem med sine domæner.
 
 ### Trin 1: Pak zip-filerne ud (Ole)
 
-Højreklik på hver zip og vælg *Udpak alle* til hver sin mappe, fx `C:\Sider\ole`. Brug ikke `.bat`-filer. De er ikke med.
+Højreklik på hver zip og vælg *Udpak alle* til hver sin mappe, fx `C:\Sider\ole`. 
 
-### Trin 2: Intet at hente
+### Trin 2: Hent billederne (kun hvis `billeder/` er tom)
 
-Springes over. Billeder og videoer hentes fra de samme steder som på de gamle sider.
+1. Klik i adresselinjen øverst i Stifinder (i sidens mappe), skriv `cmd` og tryk Enter.
+2. Indsæt denne ene kommando og tryk Enter:
+
+```
+for /f "tokens=1,2" %a in (hent.txt) do curl.exe -L --fail --create-dirs -C - -o "%a" "%b"
+```
+
+3. Vent, til markøren står stille. Kør kommandoen igen, hvis nogle filer fejlede. Det hentede springes over.
+
+Billederne fylder kun få MB pr. side. Brug ikke `.bat`-filer. Smart App Control kan blokere dem.
 
 ### Trin 3: Opret mailkonto til formularen (kun `ole` og `teamjk`)
 
@@ -121,7 +130,7 @@ Dette er sidste trin, og først når trin 5 er bestået.
 Ole risikerer ikke at miste noget, hvis han følger disse regler:
 
 1. **Zip-filerne er originalerne.** Behold dem et sted, der ikke er computeren (USB, sky). Alt kan bygges op igen fra dem.
-2. **Billederne ligger hos sidebyggeren (`files.builder.nu`), ikke hos Ole.** Vil Ole sikre sig mod, at de forsvinder, så bed sin Claude om at hente dem ned til en mappe `billeder/` og rette billedlinks i `index.html` til den mappe. Det fylder under 1 GB. Gør det, mens sidebyggerens konto stadig er aktiv.
+2. **Billederne ligger lokalt i zip-filerne** (`billeder/`). Videoerne ligger hos Ole selv. Tag en kopi af zip-filerne og af Oles videomapper, før domænerne flyttes.
 3. **Gamle sider og DanDomain lukkes sidst.** Hold dem kørende, til alt er testet på Netgiganten.
 4. **Før du ændrer en fil på nettet, så tag en kopi af den først.** Hent den ned til computeren, eller omdøb den til `index.html.gammel`.
 5. **Hvis en ny side går i stykker:** Upload den oprindelige `index.html` fra zip-filen igen. Det retter de fleste fejl.
@@ -131,7 +140,7 @@ Ole risikerer ikke at miste noget, hvis han følger disse regler:
 
 | Problem | Hvad Ole gør |
 |---|---|
-| Billeder vises ikke | De hentes fra `files.builder.nu`. Er sidebyggerens konto lukket, er de væk. Brug en sikkerhedskopi, hvis der er en, ellers kontakt Emil. |
+| Billeder vises ikke | Mappen `billeder/` mangler eller er tom, eller ligger ikke ved siden af `index.html`. Kør trin 2, eller kontakt Emil. |
 | Siden er helt hvid eller viser kun tekst | `css/`-mappen mangler eller ligger forkert. `index.html` skal ligge i roden med `css/` ved siden af. |
 | Videoer afspilles ikke | Videoerne peger på Oles egne domæner. Tjek at filen ligger på samme adresse som på den gamle side (fx `debat.vorespolitikere.dk/filnavn.mp4`) og at domænet er flyttet og virker. Er filen fra en mobil (`.3gp` eller `.mov`), kan nogle browsere ikke afspille den. |
 | Formularen siger "Beskeden kunne ikke sendes" | SMTP-oplysningerne er forkerte. Tjek server, port og sikkerhed, og at adgangskoden er skrevet rigtigt uden mellemrum. Prøv `465` og `'ssl'`, hvis `587` og `'tls'` ikke virker. |
@@ -152,7 +161,7 @@ Der findes en anden, større løsning med editor og database (Vercel og Supabase
 - [ ] Billeder og videoer vises på alle fire
 - [ ] Formularen på `ole` og `teamjk` leverer til `mailform@oleamstrup.dk`
 - [ ] Links mellem siderne er rettet fra mailform.dk til de nye adresser
-- [ ] Zip-filerne ligger som kopi på USB eller i sky
+- [ ] Zip-filerne (med billeder) ligger som kopi på USB eller i sky
 - [ ] Domænerne er flyttet fra DanDomain, og først derefter er DanDomain-abonnementet opsagt, hvis Ole vil det
 
 Når alt er afkrydset, er overførslen færdig.
