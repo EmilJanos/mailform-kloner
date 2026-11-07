@@ -94,6 +94,17 @@ update pages set owner_id = (select id from auth.users where email = 'OLES-MAIL'
 2. Vercel viser, hvilke DNS-poster der skal sættes. Samme fremgangsmåde som i trin 3.
 3. Adgangslåsen (Vercel Authentication) slås fra under Settings → Deployment Protection, **først når Ole har sagt, at siderne skal være offentlige**.
 
+### 6b. Alternativ: fire færdige zip-filer til Netgiganten
+Hvis Ole vil have siderne som almindelige filer på sit webhotel, har Emil fire zip-filer: `ole`, `teamjk`, `vores` og `missinglink`. De er uden editor og database. Teksten er fast, og kun formularen på `ole` og `teamjk` sender mail.
+
+Rækkefølge, og den må ikke byttes om:
+1. **Hent billeder og video, mens de gamle sider stadig er online.** Pak zip-filen ud, og dobbeltklik på `hent-billeder-og-videoer.bat` (Windows). Den henter alt ned i mapperne `billeder` og `videoer` efter listen i `hent.txt`. Findes en fil allerede, springes den over, så den kan køres igen. Fejlede nogle, står de på listen til sidst. Billederne ligger på `files.builder.nu`, videoerne på DanDomain-domænerne. Når DanDomain eller mailform.dk lukkes, er de væk.
+2. **Mail (kun `ole` og `teamjk`).** Opret mailkonto `mailform@oleamstrup.dk` på Netgiganten. Åbn `indstillinger.php` og ret `smtp_server` og `smtp_adgangskode`, som står som `UDFYLD`. Port 587 med `tls` eller 465 med `ssl`. Filen svarer 404, hvis nogen åbner den direkte. Uden rettelse svarer formularen med en fejl, og der sendes intet.
+3. **Upload hele mappen** til sidens domæne hos Netgiganten (PHP skal være slået til, ellers virker formularen ikke).
+4. **Test.** Åbn siden, send en besked med og uden telefonnummer, og se at den kommer frem. Der er spærring: 3 beskeder pr. afsender pr. 10 minutter og 20 pr. IP pr. time.
+
+Links på siderne peger på `https://mailform.dk/...` og skal rettes, når Ole har sit eget domæne. YouTube-videoer flyttes ikke, de er indlejret og bliver ved at virke. Videomapperne er store: `vores` har ca. 312 filer og `missinglink` ca. 48.
+
 ### 7. Tjek til sidst
 - [ ] Alle fire sider åbner uden login på det rigtige domæne
 - [ ] Formularen sender en testbesked med og uden telefonnummer, og mailen kommer frem hos `mailform@oleamstrup.dk`
