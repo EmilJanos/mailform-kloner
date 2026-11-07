@@ -43,6 +43,12 @@ Billeder og videoer er med vilje ikke pakket ind. De hentes fra de gamle steder,
 
 ---
 
+## Arbejdsdeling: Emil henter, Ole sætter op
+
+Emil henter billeder og videoer ned (trin 2) mens de gamle sider er online, og lægger dem i mapperne. Derefter pakker han en **ny zip-fil for hver side, med billeder og videoer indeni**, og giver dem til Ole (USB eller sky). Er det sket, springer Ole trin 0-2 over og begynder ved trin 3. Hvis Ole får de små zip-filer uden billeder og video, skal trin 2 gøres først.
+
+Ole kan se, om en zip er "fuld": Mapperne `billeder/` og `videoer/` er ikke tomme.
+
 ## Trin for trin
 
 ### Trin 0: Før du starter (Ole)
@@ -59,12 +65,20 @@ Højreklik på hver zip og vælg *Udpak alle* til hver sin mappe, fx `C:\Sider\o
 ### Trin 2: Hent billeder og videoer (Ole, én side ad gangen)
 
 1. Åbn mappen for siden.
-2. Dobbeltklik på `hent-billeder-og-videoer.bat`.
-3. Hvis Windows advarer ("Windows har beskyttet din pc"), vælg *Flere oplysninger* og så *Kør alligevel*. Filen er lavet til opgaven og downloader kun de adresser, der står i `hent.txt`.
-4. Vent. Der står hvor langt den er. For `vores` kan det tage lang tid og fylde mange GB.
-5. Til sidst står der en liste over filer, der fejlede, og "Tryk Enter".
+2. Klik i adresselinjen øverst i Stifinder, skriv `cmd` og tryk Enter. Et sort vindue åbner i mappen.
+3. Indsæt denne ene kommando og tryk Enter:
 
-**Kør scriptet igen, hvis nogen fejlede.** Det springer filer over, der allerede er hentet, så det er ufarligt. Fejler de samme filer igen, så skriv navnene ned og se "Hvis noget går galt".
+```
+for /f "tokens=1,2" %a in (hent.txt) do curl.exe -L --fail --create-dirs -C - -o "%a" "%b"
+```
+
+4. Vent, til markøren står stille. For `vores` kan det tage lang tid og fylde mange GB. Computeren skal være tændt og online, og dvale og skærmslukker bør være slået fra.
+
+**Brug ikke `hent-billeder-og-videoer.bat`, hvis Windows har Smart App Control slået til.** Den blokerer filen, og man må ikke slå Smart App Control fra, fordi den ikke kan tændes igen uden en ominstallation af Windows. Kommandoen ovenfor bruger Windows' egen `curl`, som ikke bliver blokeret. `.bat`-filen i zip-filen gør det samme og kan bruges på computere, hvor den ikke bliver blokeret.
+
+**Kør kommandoen igen, hvis nogen filer fejlede.** Det, der allerede er hentet, hentes ikke to gange. Fejler de samme filer igen, så skriv navnene ned og se "Hvis noget går galt".
+
+**Plads:** `ole`, `teamjk` og `missinglink` fylder samlet kun få GB. `vores` kan fylde mange flere (312 videoer), så hent den til et USB-drev eller en disk med god plads. Drevet skal være exFAT eller NTFS, ikke FAT32 (FAT32 kan ikke have filer over 4 GB).
 
 Tjek bagefter: Åbn `index.html` ved at dobbeltklikke på den. Siden åbner i browseren. Billederne skal vises, og videoerne skal kunne afspilles. Formularen virker først, når siden ligger på nettet.
 
@@ -89,6 +103,10 @@ Siden og formularen får ikke andre rettelser. Står der stadig `UDFYLD`, sender
 
 For `vores` og `missinglink` kan upload tage lang tid. Upload dem i bidder, hvis forbindelsen falder ud, og start med `index.html`, `css/` og `billeder/`.
 
+**Zip-fil direkte til serveren:** Hvis zip-filen er pakket med billeder og video, kan Ole uploade zip-filen og bruge "Udpak" i Netgigantens filhåndtering. Spørg Netgiganten om grænsen for filstørrelse ved upload, og om udpakning findes. Er zip-filen for stor (især `vores`), så pak den ud på computeren og upload mapperne med FTP-programmet FileZilla. Videoer fylder det samme med og uden zip, fordi de allerede er pakket. Efter udpakning skal `index.html` ligge direkte i domænets rodmappe og ikke i en undermappe.
+
+**Mailoplysninger skrives på serveren:** På `ole` og `teamjk` åbner Ole `indstillinger.php` i filhåndteringen efter udpakning og retter `UDFYLD` (trin 3). Adgangskoden går dermed ikke gennem andre.
+
 ### Trin 5: Test (Ole)
 
 For hver side:
@@ -102,7 +120,12 @@ Der er indbygget spærring mod misbrug: højst 3 beskeder pr. afsender på 10 mi
 
 ### Trin 6: Ret links, når domænerne er flyttet
 
-Links mellem siderne peger stadig på `https://mailform.dk/...`. Når Ole har sine egne domæner, skal de rettes til de nye adresser. Bed Claude om at finde alle forekomster af `mailform.dk` i `index.html` og foreslå rettelserne. Ole godkender, før noget ændres. Upload filen igen bagefter.
+Ole ejer selv domænet `mailform.dk`. Links mellem siderne peger på adresser som `https://mailform.dk/vores`, og de virker kun, hvis siden ligger netop dér, når domænet er flyttet til Netgiganten.
+
+- **Siderne får de samme adresser som i dag** (fx `mailform.dk/vores`). Så er links fine, og intet skal rettes. Men en zip pakkes ud i roden af ét domæne. Skal en side ligge på `/vores`, skal filerne placeres i en undermappe af domænet, der hedder `vores`.
+- **Hver side får sit eget domæne eller underdomæne.** Så skal links mellem siderne rettes til de nye adresser. Bed Claude om at finde alle forekomster af `mailform.dk` i `index.html` og foreslå rettelserne. Ole godkender, før noget ændres. Upload filen igen bagefter.
+
+Beslut først, hvilken side der skal på hvilken adresse, og gør derefter trin 4. **Spørg Ole:** hvilke adresser skal de fire sider have?
 
 ### Trin 7: Skift domænerne fra DanDomain til Netgiganten
 
